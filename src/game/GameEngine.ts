@@ -5,10 +5,13 @@ import {
   CrossPlayPlatform,
   DamageNumber,
   KillFeedEntry,
+  LobbyPlayerInfo,
   MapObstacle,
   Particle,
   PowerBox,
   PowerCubeDrop,
+  PowerUpItem,
+  PowerUpType,
   Projectile,
 } from '../types/game';
 import { sound } from '../utils/audio';
@@ -52,6 +55,7 @@ export class GameEngine {
   public damageNumbers: DamageNumber[] = [];
   public powerBoxes: PowerBox[] = [];
   public powerCubes: PowerCubeDrop[] = [];
+  public powerUps: PowerUpItem[] = [];
   public obstacles: MapObstacle[] = [];
 
   // Poison Storm Zone
@@ -81,13 +85,17 @@ export class GameEngine {
   // Natural health regeneration timer for player
   private playerCombatTimer = 0;
 
+  // Periodic powerup respawn timer
+  private powerUpRespawnTimer = 18;
+
   constructor(
     canvas: HTMLCanvasElement,
     playerBrawlerId: BrawlerId,
     playerLevel: number,
     playerUsername: string,
     playerPlatform: CrossPlayPlatform,
-    callbacks: GameEngineCallbacks
+    callbacks: GameEngineCallbacks,
+    matchedPlayers?: LobbyPlayerInfo[]
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -96,13 +104,23 @@ export class GameEngine {
     this.obstacles = [...this.mapData.obstacles];
     this.powerBoxes = [...this.mapData.powerBoxes];
 
+    // Initialize 8 tactical powerups across the arena
+    this.powerUps = this.mapData.powerUpSpawns.map((s, idx) => ({
+      id: `pup_${idx}_${Date.now()}`,
+      type: s.type,
+      x: s.x,
+      y: s.y,
+      radius: 20,
+      bobTimer: idx * 0.7,
+      collected: false,
+    }));
+
     // Initialize 10 combatants (Player + 9 Bots)
     const shuffledSpawns = [...this.mapData.spawnPoints].sort(() => Math.random() - 0.5);
     const brawlerIds: BrawlerId[] = ['blaze', 'viper', 'titan', 'raven', 'harmony'];
 
     // 1. Setup Player
     const playerDef = BRAWLERS[playerBrawlerId];
-    // Level scaling: +5% HP & Damage per level above 1
     const levelMult = 1 + (playerLevel - 1) * 0.06;
     const playerHp = Math.round(playerDef.baseHp * levelMult);
 
@@ -129,12 +147,21 @@ export class GameEngine {
       kills: 0,
       isAlive: true,
       isInBush: false,
-      poisonTicksLeft: 0,
-      poisonDamage: 0,
-      poisonAttackerId: null,
+
+      // Cartoon animation states
+      walkCycle: 0,
+      isMoving: false,
+      hitFlashTimer: 0,
+      recoilOffset: 0,
+
+      // Status & Powerup timers
       speedBoostTimer: 0,
       shieldTimer: 0,
       shieldRatio: 0,
+      doubleDamageTimer: 0,
+      poisonTicksLeft: 0,
+      poisonDamage: 0,
+      poisonAttackerId: null,
       bandAidCooldown: 0,
       isLeaping: false,
       leapProgress: 0,
@@ -149,19 +176,21 @@ export class GameEngine {
     };
     this.brawlers.push(this.player);
 
-    // 2. Setup 9 Smart Bots
+    // 2. Setup 9 Combatants (From Matchmaking Roster: Real Players + Filled Bots)
     const botNamesShuffled = [...BOT_NAMES].sort(() => Math.random() - 0.5);
     for (let i = 1; i < 10; i++) {
-      const bId = brawlerIds[i % brawlerIds.length];
+      const matchP = matchedPlayers && matchedPlayers[i] ? matchedPlayers[i] : null;
+      const bId = matchP ? matchP.brawlerId : brawlerIds[i % brawlerIds.length];
       const botDef = BRAWLERS[bId];
       const botLevel = Math.floor(Math.random() * 3) + 1;
       const bMult = 1 + (botLevel - 1) * 0.05;
       const botHp = Math.round(botDef.baseHp * bMult);
-      const botPlatform = BOT_PLATFORMS[i % BOT_PLATFORMS.length];
+      const botPlatform = matchP ? matchP.platform : BOT_PLATFORMS[i % BOT_PLATFORMS.length];
+      const botName = matchP ? matchP.name : botNamesShuffled[i % botNamesShuffled.length];
 
       const bot: BrawlerEntity = {
-        id: `bot_${i}`,
-        name: botNamesShuffled[i % botNamesShuffled.length],
+        id: matchP ? matchP.id : `bot_${i}`,
+        name: botName,
         isPlayer: false,
         platform: botPlatform,
         brawlerId: bId,
@@ -182,12 +211,19 @@ export class GameEngine {
         kills: 0,
         isAlive: true,
         isInBush: false,
-        poisonTicksLeft: 0,
-        poisonDamage: 0,
-        poisonAttackerId: null,
+
+        walkCycle: Math.random() * 10,
+        isMoving: false,
+        hitFlashTimer: 0,
+        recoilOffset: 0,
+
         speedBoostTimer: 0,
         shieldTimer: 0,
         shieldRatio: 0,
+        doubleDamageTimer: 0,
+        poisonTicksLeft: 0,
+        poisonDamage: 0,
+        poisonAttackerId: null,
         bandAidCooldown: 0,
         isLeaping: false,
         leapProgress: 0,
@@ -203,7 +239,6 @@ export class GameEngine {
       this.brawlers.push(bot);
     }
 
-    // Set initial camera
     this.camera.x = this.player.x;
     this.camera.y = this.player.y;
     this.callbacks.onAliveChange(10);
@@ -226,7 +261,7 @@ export class GameEngine {
 
   private loop(time: number) {
     if (!this.isRunning) return;
-    const dt = Math.min((time - this.lastTime) / 1000, 0.05); // cap delta time
+    const dt = Math.min((time - this.lastTime) / 1000, 0.05);
     this.lastTime = time;
 
     this.update(dt);
@@ -242,6 +277,7 @@ export class GameEngine {
     this.updateBrawlers(dt);
     this.updateProjectiles(dt);
     this.updatePowerCubes(dt);
+    this.updatePowerUps(dt);
     this.updateParticles(dt);
     this.updateDamageNumbers(dt);
     this.updateCamera(dt);
@@ -256,7 +292,6 @@ export class GameEngine {
     );
   }
 
-  // Shrinking Poison Storm Zone
   private updatePoisonZone(dt: number) {
     this.poisonZone.phaseTimer -= dt;
     this.callbacks.onPoisonPhaseChange(
@@ -290,10 +325,9 @@ export class GameEngine {
     if (!this.player.isAlive || this.player.isLeaping) return;
 
     const brawlerDef = BRAWLERS[this.player.brawlerId];
-    // Passive speed bonus: Blaze has +18% permanent speed
     let speedMult = 1;
     if (this.player.brawlerId === 'blaze') speedMult += 0.18;
-    if (this.player.speedBoostTimer > 0) speedMult += 0.45;
+    if (this.player.speedBoostTimer > 0) speedMult += 0.5; // Power-up turbo speed!
 
     const moveSpeed = brawlerDef.speed * 60 * speedMult;
 
@@ -307,6 +341,17 @@ export class GameEngine {
       if (!this.aimVector.isAiming && !this.aimVector.isSuperAiming) {
         this.player.rotation = Math.atan2(normY, normX);
       }
+
+      this.player.isMoving = true;
+      this.player.walkCycle += dt * 14;
+
+      // Spawn cartoon foot dust puffs while running
+      if (Math.random() < 0.25) {
+        this.spawnParticles(this.player.x, this.player.y + 12, '#94a3b8', 1);
+      }
+    } else {
+      this.player.isMoving = false;
+      this.player.walkCycle = 0;
     }
 
     // Aim rotation
@@ -325,24 +370,32 @@ export class GameEngine {
 
       const def = BRAWLERS[brawler.brawlerId];
 
-      // Ammo regeneration
+      // Ammo regeneration mechanic:
+      // If ammo is below max, reload progress ticks up to 1. When it reaches 1, ammo increases by 1!
       if (brawler.ammo < brawler.maxAmmo) {
         brawler.ammoProgress += dt / def.reloadTime;
         if (brawler.ammoProgress >= 1) {
           brawler.ammo += 1;
           brawler.ammoProgress = brawler.ammo < brawler.maxAmmo ? 0 : 1;
         }
+      } else {
+        brawler.ammoProgress = 1;
       }
 
       // Check bush stealth
       brawler.isInBush = this.isInsideBush(brawler.x, brawler.y);
 
-      // Timers
+      // Timers & animations decay
       if (brawler.speedBoostTimer > 0) brawler.speedBoostTimer -= dt;
       if (brawler.shieldTimer > 0) brawler.shieldTimer -= dt;
+      if (brawler.doubleDamageTimer > 0) brawler.doubleDamageTimer -= dt;
       if (brawler.bandAidCooldown > 0) brawler.bandAidCooldown -= dt;
+      if (brawler.hitFlashTimer > 0) brawler.hitFlashTimer -= dt;
+      if (brawler.recoilOffset > 0) {
+        brawler.recoilOffset = Math.max(0, brawler.recoilOffset - dt * 45);
+      }
 
-      // Poison Tick Damage from Raven's daggers or Titan burn
+      // Poison Tick Damage
       if (brawler.poisonTicksLeft > 0) {
         brawler.poisonTicksLeft -= dt;
         if (Math.random() < dt * 4) {
@@ -351,7 +404,7 @@ export class GameEngine {
         }
       }
 
-      // Out of Poison Storm zone damage!
+      // Poison Storm gas damage
       const distFromCenter = Math.hypot(brawler.x - cx, brawler.y - cy);
       if (distFromCenter > poisonR) {
         const poisonDmgPerSec = 1000;
@@ -361,7 +414,7 @@ export class GameEngine {
         }
       }
 
-      // Natural health regen (after 3.5s without taking damage and not attacking)
+      // Natural health regen (after 3.5s without combat)
       if (brawler.isPlayer) {
         this.playerCombatTimer += dt;
         if (this.playerCombatTimer > 3.5 && brawler.hp < brawler.maxHp && distFromCenter <= poisonR && brawler.poisonTicksLeft <= 0) {
@@ -369,11 +422,10 @@ export class GameEngine {
           brawler.hp = Math.min(brawler.maxHp, brawler.hp + healAmount);
         }
       } else {
-        // Bot AI behavior
         this.updateBotAI(brawler, dt);
       }
 
-      // Check Leap animation (Titan / Raven Super)
+      // Leap Animation
       if (brawler.isLeaping) {
         brawler.leapProgress += dt * 1.6;
         if (brawler.leapProgress >= 1) {
@@ -382,24 +434,23 @@ export class GameEngine {
           brawler.y = brawler.leapTargetY;
           this.onLeapLanding(brawler);
         } else {
-          // Arc trajectory
           brawler.x = brawler.leapStartX + (brawler.leapTargetX - brawler.leapStartX) * brawler.leapProgress;
           brawler.y = brawler.leapStartY + (brawler.leapTargetY - brawler.leapStartY) * brawler.leapProgress;
         }
       }
 
-      // Passive check: Viper's Band-Aid
+      // Passive: Viper's Band-Aid
       if (brawler.brawlerId === 'viper' && brawler.hp < brawler.maxHp * 0.35 && brawler.bandAidCooldown <= 0) {
         brawler.hp = Math.min(brawler.maxHp, brawler.hp + 2400);
         brawler.bandAidCooldown = 25;
-        this.spawnDamageNumber(brawler.x, brawler.y - 30, '+2400', '#22c55e', true);
+        this.spawnDamageNumber(brawler.x, brawler.y - 30, '+2400 HP', '#22c55e', true);
         this.spawnParticles(brawler.x, brawler.y, '#4ade80', 14);
         sound.playVictory();
       }
     }
   }
 
-  // --- SMART BOT AI ---
+  // --- BOT AI ---
   private updateBotAI(bot: BrawlerEntity, dt: number) {
     if (bot.isLeaping || !bot.isAlive) return;
 
@@ -409,23 +460,48 @@ export class GameEngine {
     const cy = this.poisonZone.centerY;
     const poisonR = this.poisonZone.currentRadius;
 
-    // 1. If inside or near poison gas, ALWAYS flee to center!
+    let speedMult = 1;
+    if (bot.speedBoostTimer > 0) speedMult += 0.5;
+    const moveSpeed = def.speed * 60 * speedMult * dt;
+
+    // 1. Storm retreat
     const distToCenter = Math.hypot(bot.x - cx, bot.y - cy);
     if (distToCenter > poisonR - 100) {
       const angleToCenter = Math.atan2(cy - bot.y, cx - bot.x);
-      const moveSpeed = def.speed * 60 * dt;
       this.moveEntityWithCollision(bot, Math.cos(angleToCenter) * moveSpeed, Math.sin(angleToCenter) * moveSpeed);
       bot.rotation = angleToCenter;
+      bot.isMoving = true;
+      bot.walkCycle += dt * 12;
       return;
     }
 
-    // 2. Find closest target: enemy brawlers or power boxes
+    // 2. Target check: nearby power-ups!
+    let nearestPowerUp: PowerUpItem | null = null;
+    let nearestPUDist = Infinity;
+    for (const pu of this.powerUps) {
+      if (pu.collected) continue;
+      const d = Math.hypot(bot.x - pu.x, bot.y - pu.y);
+      if (d < 350 && d < nearestPUDist) {
+        nearestPUDist = d;
+        nearestPowerUp = pu;
+      }
+    }
+
+    if (nearestPowerUp && nearestPUDist < 300) {
+      const angle = Math.atan2(nearestPowerUp.y - bot.y, nearestPowerUp.x - bot.x);
+      this.moveEntityWithCollision(bot, Math.cos(angle) * moveSpeed, Math.sin(angle) * moveSpeed);
+      bot.rotation = angle;
+      bot.isMoving = true;
+      bot.walkCycle += dt * 12;
+      return;
+    }
+
+    // 3. Enemies or Boxes
     let closestEnemy: BrawlerEntity | null = null;
     let closestEnemyDist = Infinity;
 
     for (const other of this.brawlers) {
       if (other.id === bot.id || !other.isAlive) continue;
-      // Stealth check: if other is in bush and bot is outside, bot cannot see them!
       if (other.isInBush && !bot.isInBush && Math.hypot(bot.x - other.x, bot.y - other.y) > 85) {
         continue;
       }
@@ -447,39 +523,23 @@ export class GameEngine {
       }
     }
 
-    // Decision making
-    const shouldHeal = bot.hp < bot.maxHp * 0.45 && closestEnemyDist > 250;
-    const moveSpeed = def.speed * 60 * dt;
-
-    if (shouldHeal) {
-      // Find nearest bush to hide and recover
-      let nearestBush = this.findNearestBush(bot.x, bot.y);
-      if (nearestBush && !bot.isInBush) {
-        const bx = nearestBush.x + nearestBush.width / 2;
-        const by = nearestBush.y + nearestBush.height / 2;
-        const angle = Math.atan2(by - bot.y, bx - bot.x);
-        this.moveEntityWithCollision(bot, Math.cos(angle) * moveSpeed, Math.sin(angle) * moveSpeed);
-        bot.rotation = angle;
-      }
-      return;
-    }
-
-    // Combat or Box farming
     if (closestEnemy && closestEnemyDist < def.attackRange + 100) {
-      // Attack enemy
       const angle = Math.atan2(closestEnemy.y - bot.y, closestEnemy.x - bot.x);
       bot.rotation = angle;
 
-      // Distance management: tanks close in, sharpshooters keep distance
       const idealDist = def.role === 'Colosso' ? 80 : def.attackRange * 0.75;
       if (closestEnemyDist > idealDist) {
         this.moveEntityWithCollision(bot, Math.cos(angle) * moveSpeed, Math.sin(angle) * moveSpeed);
+        bot.isMoving = true;
+        bot.walkCycle += dt * 12;
       } else if (closestEnemyDist < idealDist * 0.6 && def.role !== 'Colosso') {
-        // Back off
         this.moveEntityWithCollision(bot, -Math.cos(angle) * moveSpeed, -Math.sin(angle) * moveSpeed);
+        bot.isMoving = true;
+        bot.walkCycle += dt * 12;
+      } else {
+        bot.isMoving = false;
       }
 
-      // Fire weapon
       if (bot.superCharge >= 100 && closestEnemyDist < def.superRange) {
         this.executeSuper(bot, angle);
       } else if (bot.ammo >= 1 && closestEnemyDist <= def.attackRange) {
@@ -488,7 +548,6 @@ export class GameEngine {
         }
       }
     } else if (closestBox && closestBoxDist < 450) {
-      // Move toward box and destroy it
       const targetX = closestBox.x + closestBox.width / 2;
       const targetY = closestBox.y + closestBox.height / 2;
       const angle = Math.atan2(targetY - bot.y, targetX - bot.x);
@@ -496,28 +555,34 @@ export class GameEngine {
 
       if (closestBoxDist > def.attackRange * 0.6) {
         this.moveEntityWithCollision(bot, Math.cos(angle) * moveSpeed, Math.sin(angle) * moveSpeed);
+        bot.isMoving = true;
+        bot.walkCycle += dt * 12;
+      } else {
+        bot.isMoving = false;
       }
+
       if (bot.ammo >= 1 && closestBoxDist <= def.attackRange) {
         if (Math.random() < 0.18) {
           this.executeNormalAttack(bot, angle);
         }
       }
     } else {
-      // Roam towards center safe zone
       const angle = Math.atan2(cy - bot.y, cx - bot.x) + (Math.random() - 0.5) * 0.6;
       this.moveEntityWithCollision(bot, Math.cos(angle) * moveSpeed * 0.7, Math.sin(angle) * moveSpeed * 0.7);
       bot.rotation = angle;
+      bot.isMoving = true;
+      bot.walkCycle += dt * 10;
     }
   }
 
-  // --- ATTACKS AND SUPERS ---
+  // --- ATTACKS & AMMO DECREASE ---
   public firePlayerNormalAttack(angle?: number) {
     if (!this.player.isAlive || this.player.isLeaping) return;
-    if (this.player.ammo < 1) return;
+    // Cannot fire if 0 ammo!
+    if (this.player.ammo <= 0) return;
 
     let targetAngle = angle;
     if (targetAngle === undefined) {
-      // Auto-aim at closest target!
       targetAngle = this.findAutoAimAngle(this.player, false);
     }
 
@@ -544,12 +609,11 @@ export class GameEngine {
 
     const brawlerId = this.player.brawlerId;
     if (brawlerId === 'blaze') {
-      // Instantly reload 2 ammo
       this.player.ammo = Math.min(this.player.maxAmmo, this.player.ammo + 2);
+      this.player.ammoProgress = 1;
       this.spawnParticles(this.player.x, this.player.y, '#f59e0b', 16);
       sound.playPowerCube();
     } else if (brawlerId === 'viper') {
-      // Tactical dash
       const dashDist = 200;
       const dx = Math.cos(this.player.rotation) * dashDist;
       const dy = Math.sin(this.player.rotation) * dashDist;
@@ -557,7 +621,6 @@ export class GameEngine {
       this.spawnParticles(this.player.x, this.player.y, '#a855f7', 18);
       sound.playBush();
     } else if (brawlerId === 'titan') {
-      // Ground stomp AoE shockwave
       this.spawnParticles(this.player.x, this.player.y, '#3b82f6', 30);
       sound.playExplosion();
       this.camera.shake = 10;
@@ -566,21 +629,19 @@ export class GameEngine {
           const d = Math.hypot(other.x - this.player.x, other.y - this.player.y);
           if (d < 220) {
             this.applyDamage(other, 800, this.player.id, false, '#3b82f6');
-            other.speedBoostTimer = -2.5; // Slow down
+            other.speedBoostTimer = -2.5;
           }
         }
       }
     } else if (brawlerId === 'raven') {
-      // 50% damage reduction shield
       this.player.shieldTimer = 3.5;
       this.player.shieldRatio = 0.5;
       this.spawnParticles(this.player.x, this.player.y, '#eab308', 20);
       sound.playSuperReady();
     } else if (brawlerId === 'harmony') {
-      // Cleanse negative status and heal 1400 HP
       this.player.poisonTicksLeft = 0;
       this.player.hp = Math.min(this.player.maxHp, this.player.hp + 1400);
-      this.spawnDamageNumber(this.player.x, this.player.y - 30, '+1400', '#10b981', true);
+      this.spawnDamageNumber(this.player.x, this.player.y - 30, '+1400 HP', '#10b981', true);
       this.spawnParticles(this.player.x, this.player.y, '#10b981', 25);
       sound.playVictory();
     }
@@ -588,17 +649,33 @@ export class GameEngine {
 
   private executeNormalAttack(attacker: BrawlerEntity, angle: number) {
     const def = BRAWLERS[attacker.brawlerId];
+    
+    // Decrement ammo immediately
     attacker.ammo--;
-    attacker.rotation = angle;
+    if (attacker.ammoProgress >= 1) {
+      attacker.ammoProgress = 0; // Starts refilling from 0!
+    }
 
-    // Cube damage bonus: +10% per power cube
-    const cubeDamageMult = 1 + attacker.powerCubes * 0.1;
-    const baseDamage = Math.round(def.attackDamage * cubeDamageMult);
+    attacker.rotation = angle;
+    attacker.recoilOffset = 10; // Cartoon recoil kickback!
+
+    // Cube & Double Damage multiplier
+    let damageMult = 1 + attacker.powerCubes * 0.1;
+    if (attacker.doubleDamageTimer > 0) damageMult *= 2; // 2x Double Damage powerup!
+
+    const baseDamage = Math.round(def.attackDamage * damageMult);
 
     sound.playShoot(def.bulletType);
 
+    // Muzzle flash particle
+    this.spawnParticles(
+      attacker.x + Math.cos(angle) * 35,
+      attacker.y + Math.sin(angle) * 35,
+      '#fef08a',
+      6
+    );
+
     if (attacker.brawlerId === 'blaze') {
-      // 6 rapid bullets fired sequentially
       for (let i = 0; i < def.bulletCount; i++) {
         setTimeout(() => {
           if (!attacker.isAlive) return;
@@ -619,13 +696,12 @@ export class GameEngine {
             radius: def.bulletRadius,
             piercing: false,
             destroysWalls: false,
-            color: '#f97316',
+            color: attacker.doubleDamageTimer > 0 ? '#ef4444' : '#f97316',
             bulletType: 'bullet',
           });
         }, i * 65);
       }
     } else if (attacker.brawlerId === 'viper') {
-      // 5 shotgun pellets in a cone
       for (let i = 0; i < def.bulletCount; i++) {
         const spreadOffset = ((i - (def.bulletCount - 1) / 2) / (def.bulletCount - 1)) * def.attackSpread;
         const a = angle + spreadOffset;
@@ -644,12 +720,11 @@ export class GameEngine {
           radius: def.bulletRadius,
           piercing: false,
           destroysWalls: false,
-          color: '#c084fc',
+          color: attacker.doubleDamageTimer > 0 ? '#f43f5e' : '#c084fc',
           bulletType: 'shotgun',
         });
       }
     } else if (attacker.brawlerId === 'titan') {
-      // 4 rapid punches
       for (let i = 0; i < def.bulletCount; i++) {
         setTimeout(() => {
           if (!attacker.isAlive) return;
@@ -669,13 +744,12 @@ export class GameEngine {
             radius: def.bulletRadius,
             piercing: false,
             destroysWalls: false,
-            color: '#60a5fa',
+            color: attacker.doubleDamageTimer > 0 ? '#ea580c' : '#60a5fa',
             bulletType: 'punch',
           });
         }, i * 80);
       }
     } else if (attacker.brawlerId === 'raven') {
-      // 3 poison daggers
       for (let i = 0; i < def.bulletCount; i++) {
         const spreadOffset = ((i - 1) * def.attackSpread) / 2;
         const a = angle + spreadOffset;
@@ -700,7 +774,6 @@ export class GameEngine {
         });
       }
     } else if (attacker.brawlerId === 'harmony') {
-      // Penetrating wide sonic wave
       this.projectiles.push({
         id: `proj_${Date.now()}_${Math.random()}`,
         ownerId: attacker.id,
@@ -719,7 +792,6 @@ export class GameEngine {
         color: '#34d399',
         bulletType: 'sonic',
       });
-      // Harmony passive: Da Capo heals on hit
     }
   }
 
@@ -727,13 +799,14 @@ export class GameEngine {
     const def = BRAWLERS[attacker.brawlerId];
     attacker.superCharge = 0;
     attacker.rotation = angle;
+    attacker.recoilOffset = 16;
     sound.playSuperCast();
 
-    const cubeDamageMult = 1 + attacker.powerCubes * 0.1;
-    const superDamage = Math.round(def.superDamage * cubeDamageMult);
+    let damageMult = 1 + attacker.powerCubes * 0.1;
+    if (attacker.doubleDamageTimer > 0) damageMult *= 2;
+    const superDamage = Math.round(def.superDamage * damageMult);
 
     if (attacker.brawlerId === 'blaze') {
-      // Heavy barrage of 12 piercing heavy rounds destroying walls
       this.camera.shake = 8;
       for (let i = 0; i < 12; i++) {
         setTimeout(() => {
@@ -760,7 +833,6 @@ export class GameEngine {
         }, i * 50);
       }
     } else if (attacker.brawlerId === 'viper') {
-      // Super Calibro: massive blast destroying walls and pushing enemies back
       this.camera.shake = 12;
       for (let i = 0; i < 9; i++) {
         const spread = ((i - 4) / 4) * 0.5;
@@ -785,7 +857,6 @@ export class GameEngine {
         });
       }
     } else if (attacker.brawlerId === 'titan') {
-      // Meteor leap into air and crash
       const leapDist = Math.min(def.superRange, 480);
       attacker.isLeaping = true;
       attacker.leapProgress = 0;
@@ -795,7 +866,6 @@ export class GameEngine {
       attacker.leapTargetY = attacker.y + Math.sin(angle) * leapDist;
       this.spawnParticles(attacker.x, attacker.y, '#3b82f6', 20);
     } else if (attacker.brawlerId === 'raven') {
-      // Leap into air launching daggers on takeoff and landing
       this.launchRavenDaggerRing(attacker);
       const leapDist = Math.min(def.superRange, 460);
       attacker.isLeaping = true;
@@ -805,14 +875,12 @@ export class GameEngine {
       attacker.leapTargetX = attacker.x + Math.cos(angle) * leapDist;
       attacker.leapTargetY = attacker.y + Math.sin(angle) * leapDist;
     } else if (attacker.brawlerId === 'harmony') {
-      // Massive healing symphony wave
       this.camera.shake = 6;
       attacker.hp = Math.min(attacker.maxHp, attacker.hp + 3800);
-      this.spawnDamageNumber(attacker.x, attacker.y - 30, '+3800', '#10b981', true);
+      this.spawnDamageNumber(attacker.x, attacker.y - 30, '+3800 HP', '#10b981', true);
       this.spawnParticles(attacker.x, attacker.y, '#10b981', 35);
       sound.playVictory();
 
-      // Damaging sound wave forward
       this.projectiles.push({
         id: `proj_super_${Date.now()}`,
         ownerId: attacker.id,
@@ -865,11 +933,8 @@ export class GameEngine {
       this.camera.shake = 16;
       sound.playExplosion();
       this.spawnParticles(brawler.x, brawler.y, '#f97316', 40);
-
-      // Destroy nearby destructible obstacles
       this.destroyWallsInRadius(brawler.x, brawler.y, 140);
 
-      // Damage enemies in landing radius
       const cubeDamageMult = 1 + brawler.powerCubes * 0.1;
       const landingDamage = Math.round(3000 * cubeDamageMult);
 
@@ -878,7 +943,6 @@ export class GameEngine {
           const dist = Math.hypot(other.x - brawler.x, other.y - brawler.y);
           if (dist <= 140) {
             this.applyDamage(other, landingDamage, brawler.id, false, '#f97316');
-            // Titan Passive: Furia Bruciante (burn effect)
             other.poisonTicksLeft = 4;
             other.poisonDamage = 200;
             other.poisonAttackerId = brawler.id;
@@ -891,15 +955,12 @@ export class GameEngine {
     }
   }
 
-  // Auto-aim calculation for quick-taps
   private findAutoAimAngle(from: BrawlerEntity, isSuper = false): number {
     let closestTarget: { x: number; y: number } | null = null;
     let closestDist = Infinity;
 
-    // First priority: Enemy Brawlers
     for (const b of this.brawlers) {
       if (b.id === from.id || !b.isAlive) continue;
-      // Stealth check
       if (b.isInBush && !from.isInBush && Math.hypot(from.x - b.x, from.y - b.y) > 85) {
         continue;
       }
@@ -910,7 +971,6 @@ export class GameEngine {
       }
     }
 
-    // Second priority (for normal attack): Power Boxes
     if (!closestTarget && !isSuper) {
       for (const box of this.powerBoxes) {
         if (box.isDestroyed) continue;
@@ -928,7 +988,80 @@ export class GameEngine {
     return from.rotation;
   }
 
-  // --- PROJECTILES & COLLISIONS ---
+  // --- POWER-UPS UPDATE & COLLECTION ---
+  private updatePowerUps(dt: number) {
+    this.powerUpRespawnTimer -= dt;
+    if (this.powerUpRespawnTimer <= 0) {
+      this.powerUpRespawnTimer = 22;
+      // Respawn 2 random powerups in safe area
+      const types: PowerUpType[] = ['speed', 'shield', 'damage', 'heal', 'super'];
+      for (let i = 0; i < 2; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.random() * (this.poisonZone.currentRadius * 0.7);
+        this.powerUps.push({
+          id: `pup_spawn_${Date.now()}_${i}`,
+          type: types[Math.floor(Math.random() * types.length)],
+          x: this.poisonZone.centerX + Math.cos(angle) * r,
+          y: this.poisonZone.centerY + Math.sin(angle) * r,
+          radius: 20,
+          bobTimer: Math.random() * 5,
+          collected: false,
+        });
+      }
+    }
+
+    for (let i = this.powerUps.length - 1; i >= 0; i--) {
+      const pu = this.powerUps[i];
+      if (pu.collected) continue;
+
+      pu.bobTimer += dt * 3.5;
+
+      // Check collision with living brawlers
+      for (const b of this.brawlers) {
+        if (!b.isAlive || b.isLeaping) continue;
+        const dist = Math.hypot(b.x - pu.x, b.y - pu.y);
+        if (dist <= b.radius + pu.radius) {
+          // Collected!
+          pu.collected = true;
+          this.applyPowerUp(b, pu.type);
+          this.powerUps.splice(i, 1);
+          break;
+        }
+      }
+    }
+  }
+
+  private applyPowerUp(brawler: BrawlerEntity, type: PowerUpType) {
+    sound.playPowerUp();
+
+    if (type === 'speed') {
+      brawler.speedBoostTimer = 8;
+      this.spawnDamageNumber(brawler.x, brawler.y - 30, '⚡ VELOCITÀ MAX!', '#38bdf8', true);
+      this.spawnParticles(brawler.x, brawler.y, '#38bdf8', 18);
+    } else if (type === 'shield') {
+      brawler.shieldTimer = 7;
+      brawler.shieldRatio = 0.7; // 70% damage reduction
+      this.spawnDamageNumber(brawler.x, brawler.y - 30, '🛡️ SUPER SCUDO!', '#a855f7', true);
+      this.spawnParticles(brawler.x, brawler.y, '#c084fc', 20);
+    } else if (type === 'damage') {
+      brawler.doubleDamageTimer = 8;
+      this.spawnDamageNumber(brawler.x, brawler.y - 30, '💥 DANNO DOPPIO!', '#ef4444', true);
+      this.spawnParticles(brawler.x, brawler.y, '#f87171', 22);
+    } else if (type === 'heal') {
+      brawler.hp = Math.min(brawler.maxHp, brawler.hp + 2500);
+      this.spawnDamageNumber(brawler.x, brawler.y - 30, '💚 +2500 HP!', '#22c55e', true);
+      this.spawnParticles(brawler.x, brawler.y, '#4ade80', 25);
+    } else if (type === 'super') {
+      brawler.superCharge = 100;
+      this.spawnDamageNumber(brawler.x, brawler.y - 30, '🌟 SUPER PRONTA!', '#eab308', true);
+      this.spawnParticles(brawler.x, brawler.y, '#facc15', 25);
+      if (brawler.isPlayer) {
+        sound.playSuperReady();
+      }
+    }
+  }
+
+  // --- PROJECTILES & DAMAGE ---
   private updateProjectiles(dt: number) {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
@@ -936,17 +1069,16 @@ export class GameEngine {
       p.y += p.vy;
       p.distanceTraveled += Math.hypot(p.vx, p.vy);
 
-      // Check max range
       if (p.distanceTraveled >= p.maxDistance) {
         this.projectiles.splice(i, 1);
         continue;
       }
 
-      // Check wall collision
+      // Wall collision
       let hitWall = false;
       for (let wIdx = this.obstacles.length - 1; wIdx >= 0; wIdx--) {
         const obs = this.obstacles[wIdx];
-        if (obs.type === 'water') continue; // Bullets fly over water ponds!
+        if (obs.type === 'water') continue;
 
         if (
           p.x + p.radius > obs.x &&
@@ -954,7 +1086,6 @@ export class GameEngine {
           p.y + p.radius > obs.y &&
           p.y - p.radius < obs.y + obs.height
         ) {
-          // Destroys wall?
           if (p.destroysWalls && obs.destructible) {
             this.spawnParticles(obs.x + obs.width / 2, obs.y + obs.height / 2, '#78350f', 12);
             this.obstacles.splice(wIdx, 1);
@@ -980,7 +1111,7 @@ export class GameEngine {
         continue;
       }
 
-      // Check Power Box collision
+      // Box collision
       let hitBox = false;
       for (const box of this.powerBoxes) {
         if (box.isDestroyed) continue;
@@ -992,7 +1123,7 @@ export class GameEngine {
         ) {
           box.hp -= p.damage;
           this.spawnDamageNumber(p.x, p.y, `${p.damage}`, '#ffffff');
-          this.spawnParticles(p.x, p.y, '#f59e0b', 5);
+          this.spawnParticles(p.x, p.y, '#f59e0b', 6);
           sound.playHit();
 
           if (box.hp <= 0) {
@@ -1001,7 +1132,6 @@ export class GameEngine {
             sound.playExplosion();
           }
 
-          // Charge attacker super
           const attacker = this.brawlers.find((b) => b.id === p.ownerId);
           if (attacker && !p.isSuper) {
             const def = BRAWLERS[attacker.brawlerId];
@@ -1020,14 +1150,13 @@ export class GameEngine {
         continue;
       }
 
-      // Check Brawler collision
+      // Brawler collision
       let hitBrawler = false;
       for (const target of this.brawlers) {
         if (target.id === p.ownerId || !target.isAlive || target.isLeaping) continue;
 
         const dist = Math.hypot(p.x - target.x, p.y - target.y);
         if (dist <= p.radius + target.radius) {
-          // Attacker gets super charge!
           const attacker = this.brawlers.find((b) => b.id === p.ownerId);
           if (attacker && !p.isSuper) {
             const def = BRAWLERS[attacker.brawlerId];
@@ -1035,14 +1164,12 @@ export class GameEngine {
             if (attacker.superCharge >= 100 && attacker.isPlayer) {
               sound.playSuperReady();
             }
-            // Harmony passive: Da Capo heals on hitting enemy!
             if (attacker.brawlerId === 'harmony') {
               attacker.hp = Math.min(attacker.maxHp, attacker.hp + 450);
-              this.spawnDamageNumber(attacker.x, attacker.y - 20, '+450', '#10b981', true);
+              this.spawnDamageNumber(attacker.x, attacker.y - 20, '+450 HP', '#10b981', true);
             }
           }
 
-          // Poison dagger passive effect
           if (p.isPoisonous) {
             target.poisonTicksLeft = 4;
             target.poisonDamage = 180;
@@ -1066,7 +1193,6 @@ export class GameEngine {
     }
   }
 
-  // --- DAMAGE & ELIMINATIONS ---
   private applyDamage(
     target: BrawlerEntity,
     rawDamage: number,
@@ -1078,12 +1204,12 @@ export class GameEngine {
 
     let finalDamage = Math.round(rawDamage);
 
-    // Shield check
     if (target.shieldTimer > 0) {
       finalDamage = Math.round(finalDamage * (1 - target.shieldRatio));
     }
 
     target.hp -= finalDamage;
+    target.hitFlashTimer = 0.12; // White cartoon hit flash!
     this.spawnDamageNumber(target.x, target.y - 25, `${finalDamage}`, color);
 
     if (target.isPlayer) {
@@ -1091,18 +1217,15 @@ export class GameEngine {
       this.camera.shake = Math.min(12, this.camera.shake + 5);
     }
 
-    // Did brawler die?
     if (target.hp <= 0) {
       target.hp = 0;
       target.isAlive = false;
       this.spawnParticles(target.x, target.y, '#ef4444', 30);
       sound.playElimination();
 
-      // Drop all accumulated power cubes + 2 bonus cubes!
       const cubesToDrop = Math.max(2, target.powerCubes + 1);
       this.spawnPowerCubes(target.x, target.y, cubesToDrop);
 
-      // Crediting killer
       const killer = this.brawlers.find((b) => b.id === attackerId);
       if (killer) {
         killer.kills++;
@@ -1118,11 +1241,9 @@ export class GameEngine {
       };
       this.callbacks.onKillFeed(killEntry);
 
-      // Update alive count
       const aliveCount = this.brawlers.filter((b) => b.isAlive).length;
       this.callbacks.onAliveChange(aliveCount);
 
-      // Check player death or victory
       if (target.isPlayer) {
         const placement = aliveCount + 1;
         this.callbacks.onGameOver(placement, target.kills, target.powerCubes);
@@ -1160,24 +1281,21 @@ export class GameEngine {
       cube.vx *= 0.92;
       cube.vy *= 0.92;
 
-      // Magnetic attraction to nearby living brawlers
       for (const brawler of this.brawlers) {
         if (!brawler.isAlive || brawler.isLeaping) continue;
         const dist = Math.hypot(brawler.x - cube.x, brawler.y - cube.y);
         if (dist < 130) {
-          // Attract
           cube.x += ((brawler.x - cube.x) / dist) * 7;
           cube.y += ((brawler.y - cube.y) / dist) * 7;
         }
 
         if (dist <= brawler.radius + 14) {
-          // Collect!
           brawler.powerCubes++;
           brawler.maxHp += 400;
           brawler.hp = Math.min(brawler.maxHp, brawler.hp + 400);
 
           this.spawnParticles(cube.x, cube.y, '#10b981', 12);
-          this.spawnDamageNumber(brawler.x, brawler.y - 35, '+1 CUB', '#10b981', true);
+          this.spawnDamageNumber(brawler.x, brawler.y - 35, '+1 CUBO ⚡', '#10b981', true);
           if (brawler.isPlayer) {
             sound.playPowerCube();
           }
@@ -1231,7 +1349,7 @@ export class GameEngine {
       y,
       text,
       color,
-      scale: isHeal ? 1.2 : 1.0,
+      scale: isHeal ? 1.3 : 1.1,
       life: 0,
       isHeal,
     });
@@ -1240,25 +1358,23 @@ export class GameEngine {
   private updateDamageNumbers(dt: number) {
     for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
       const d = this.damageNumbers[i];
-      d.y -= 38 * dt; // Float up
-      d.life += dt * 1.6;
+      d.y -= 40 * dt;
+      d.life += dt * 1.5;
       if (d.life >= 1) {
         this.damageNumbers.splice(i, 1);
       }
     }
   }
 
-  // --- COLLISION HELPERS ---
+  // --- COLLISION ---
   private moveEntityWithCollision(entity: BrawlerEntity, dx: number, dy: number) {
     const newX = entity.x + dx;
     const newY = entity.y + dy;
 
-    // Boundary check
     const r = entity.radius;
     const clampedX = Math.max(r + 40, Math.min(this.mapData.width - r - 40, newX));
     const clampedY = Math.max(r + 40, Math.min(this.mapData.height - r - 40, newY));
 
-    // Obstacle collision
     let canMoveX = true;
     let canMoveY = true;
 
@@ -1267,7 +1383,6 @@ export class GameEngine {
       if (this.circleIntersectsRect(entity.x, clampedY, r, obs)) canMoveY = false;
     }
 
-    // Power box collision
     for (const box of this.powerBoxes) {
       if (box.isDestroyed) continue;
       if (this.circleIntersectsRect(clampedX, entity.y, r, box)) canMoveX = false;
@@ -1321,9 +1436,7 @@ export class GameEngine {
     }
   }
 
-  // --- CAMERA ---
   private updateCamera(dt: number) {
-    // Smooth camera lerp following player
     this.camera.targetX = this.player.x;
     this.camera.targetY = this.player.y;
 
@@ -1337,53 +1450,52 @@ export class GameEngine {
     }
   }
 
-  // --- RENDERING (60FPS CANVAS 2D WITH ISOMETRIC/2.5D SHADOWS & PERSPECTIVE) ---
+  // --- CARTOON RENDERING SYSTEM ---
   private render() {
     const { ctx, canvas } = this;
     const width = canvas.width;
     const height = canvas.height;
 
-    // Clear
-    ctx.fillStyle = '#0b0f19';
+    ctx.fillStyle = '#0a0e1a';
     ctx.fillRect(0, 0, width, height);
 
     ctx.save();
-    // Center camera on screen + apply shake
     const shakeX = (Math.random() - 0.5) * this.camera.shake;
     const shakeY = (Math.random() - 0.5) * this.camera.shake;
     ctx.translate(width / 2 + shakeX, height / 2 + shakeY);
     ctx.scale(this.camera.zoom, this.camera.zoom);
     ctx.translate(-this.camera.x, -this.camera.y);
 
-    // 1. Draw Ground Tiles & Arena Grid
+    // 1. Stylized Cartoon Arena Ground
     this.renderGround(ctx);
 
-    // 2. Draw Bushes (Under layer)
+    // 2. Bushes
     this.renderBushes(ctx);
 
-    // 3. Draw Power Boxes & Obstacles
+    // 3. Obstacles, Boxes, Power Cubes, and Tactical Power-Ups
     this.renderObstacles(ctx);
     this.renderPowerBoxes(ctx);
     this.renderPowerCubes(ctx);
+    this.renderPowerUps(ctx);
 
-    // 4. Draw Projectiles
+    // 4. Projectiles
     this.renderProjectiles(ctx);
 
-    // 5. Draw Brawlers (with stealth & visual indicators)
+    // 5. Brawlers with Cartoon Walking & Recoil Animations + OVERHEAD HEALTH BARS
     this.renderBrawlers(ctx);
 
-    // 6. Draw Aiming Indicators (Trajectory arc / line / laser)
+    // 6. Aiming Trajectory
     if (this.player.isAlive) {
       this.renderPlayerAimIndicator(ctx);
     }
 
-    // 7. Draw Particles
+    // 7. Particles
     this.renderParticles(ctx);
 
-    // 8. Draw Damage Numbers
+    // 8. Comic Damage Numbers
     this.renderDamageNumbers(ctx);
 
-    // 9. Draw Poison Storm Gas (Vignette & haze over ground outside safe circle)
+    // 9. Poison Storm Zone
     this.renderPoisonZone(ctx);
 
     ctx.restore();
@@ -1393,89 +1505,115 @@ export class GameEngine {
     const mapW = this.mapData.width;
     const mapH = this.mapData.height;
 
-    // Ground base color: warm desert arena tone (Brawl Stars Showdown style)
-    ctx.fillStyle = '#1e293b';
+    // Rich cartoon desert ground
+    ctx.fillStyle = '#243048';
     ctx.fillRect(0, 0, mapW, mapH);
 
-    // Grid lines for tactical 2.5D perspective
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 1;
+    // Cartoon hex / cobblestone pattern
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2;
+    const step = 80;
     ctx.beginPath();
-    const tileSize = 80;
-    for (let x = 0; x <= mapW; x += tileSize) {
+    for (let x = 0; x <= mapW; x += step) {
       ctx.moveTo(x, 0);
       ctx.lineTo(x, mapH);
     }
-    for (let y = 0; y <= mapH; y += tileSize) {
+    for (let y = 0; y <= mapH; y += step) {
       ctx.moveTo(0, y);
       ctx.lineTo(mapW, y);
     }
     ctx.stroke();
 
-    // Map Center Star Emblem
+    // Stylized flower clumps and grass tufts scattered around
+    ctx.fillStyle = '#3b82f6';
+    for (let i = 120; i < mapW; i += 240) {
+      for (let j = 120; j < mapH; j += 240) {
+        ctx.beginPath();
+        ctx.arc(i + 15, j + 20, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Central Arena Decal
     const cx = mapW / 2;
     const cy = mapH / 2;
     ctx.save();
-    ctx.fillStyle = 'rgba(59, 130, 246, 0.15)';
+    ctx.fillStyle = 'rgba(234, 179, 8, 0.12)';
     ctx.beginPath();
-    ctx.arc(cx, cy, 240, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 260, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(59, 130, 246, 0.35)';
-    ctx.lineWidth = 4;
-    ctx.setLineDash([16, 12]);
+    ctx.strokeStyle = 'rgba(234, 179, 8, 0.4)';
+    ctx.lineWidth = 6;
+    ctx.setLineDash([20, 16]);
     ctx.stroke();
+
+    // Star icon in center
+    ctx.font = '72px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(234, 179, 8, 0.3)';
+    ctx.fillText('⭐', cx, cy);
     ctx.restore();
   }
 
   private renderBushes(ctx: CanvasRenderingContext2D) {
     for (const b of this.mapData.bushes) {
-      // Lush cartoon tall grass
+      // Lush cartoon tall grass with round leafy tufts
       ctx.fillStyle = '#15803d';
-      ctx.fillRect(b.x, b.y, b.width, b.height);
+      ctx.beginPath();
+      ctx.roundRect(b.x, b.y, b.width, b.height, 16);
+      ctx.fill();
 
-      // Grass texture details
+      // Bright cartoon grass leaves
       ctx.fillStyle = '#22c55e';
-      const step = 20;
-      for (let gx = b.x + 5; gx < b.x + b.width - 5; gx += step) {
-        for (let gy = b.y + 5; gy < b.y + b.height - 5; gy += step) {
+      const step = 22;
+      for (let gx = b.x + 8; gx < b.x + b.width - 8; gx += step) {
+        for (let gy = b.y + 8; gy < b.y + b.height - 8; gy += step) {
           ctx.beginPath();
-          ctx.arc(gx + Math.sin(gx) * 3, gy + Math.cos(gy) * 3, 6, 0, Math.PI * 2);
+          ctx.arc(gx, gy, 7, 0, Math.PI * 2);
           ctx.fill();
         }
       }
+
+      // Dark comic border
+      ctx.strokeStyle = '#052e16';
+      ctx.lineWidth = 3;
+      ctx.stroke();
     }
   }
 
   private renderObstacles(ctx: CanvasRenderingContext2D) {
     for (const obs of this.obstacles) {
       if (obs.type === 'stone') {
-        // 2.5D stone block with drop shadow and top bevel
+        // 3D Cartoon Stone Block
         ctx.fillStyle = '#0f172a';
-        ctx.fillRect(obs.x + 4, obs.y + 8, obs.width, obs.height);
+        ctx.beginPath();
+        ctx.roundRect(obs.x + 3, obs.y + 7, obs.width, obs.height, 10);
+        ctx.fill();
 
-        // Stone body
         ctx.fillStyle = '#475569';
-        ctx.fillRect(obs.x, obs.y + 6, obs.width, obs.height - 6);
+        ctx.beginPath();
+        ctx.roundRect(obs.x, obs.y + 5, obs.width, obs.height - 5, 10);
+        ctx.fill();
 
-        // Stone top
         ctx.fillStyle = '#64748b';
-        ctx.fillRect(obs.x, obs.y, obs.width, obs.height - 6);
+        ctx.beginPath();
+        ctx.roundRect(obs.x, obs.y, obs.width, obs.height - 6, 10);
+        ctx.fill();
 
-        // Outline
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
       } else if (obs.type === 'wood_box') {
-        // Destructible wood crate
+        // Cartoon Destructible Wood Crate
         ctx.fillStyle = '#78350f';
         ctx.fillRect(obs.x, obs.y + 6, obs.width, obs.height - 6);
 
-        ctx.fillStyle = '#b45309';
+        ctx.fillStyle = '#d97706';
         ctx.fillRect(obs.x, obs.y, obs.width, obs.height - 6);
 
-        // Wood planks cross
         ctx.strokeStyle = '#451a03';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 3.5;
         ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
         ctx.beginPath();
         ctx.moveTo(obs.x, obs.y);
@@ -1484,13 +1622,16 @@ export class GameEngine {
         ctx.lineTo(obs.x, obs.y + obs.height);
         ctx.stroke();
       } else if (obs.type === 'water') {
-        // Water pond
+        // Cartoon Water Pond with ripples
         ctx.fillStyle = '#0284c7';
         ctx.beginPath();
-        ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 14);
+        ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 16);
         ctx.fill();
+        ctx.strokeStyle = '#075985';
+        ctx.lineWidth = 3;
+        ctx.stroke();
 
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.beginPath();
         ctx.ellipse(obs.x + obs.width * 0.4, obs.y + obs.height * 0.35, 18, 6, 0, 0, Math.PI * 2);
         ctx.fill();
@@ -1502,66 +1643,119 @@ export class GameEngine {
     for (const box of this.powerBoxes) {
       if (box.isDestroyed) continue;
 
-      // Drop shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.beginPath();
       ctx.ellipse(box.x + box.width / 2, box.y + box.height + 4, 22, 8, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Box body: Iconic blue-gold Power Box
+      // Cartoon Power Box Body
       ctx.fillStyle = '#1e3a8a';
       ctx.fillRect(box.x, box.y + 6, box.width, box.height - 6);
-
       ctx.fillStyle = '#3b82f6';
       ctx.fillRect(box.x, box.y, box.width, box.height - 6);
 
-      // Golden skull / power emblem on front
       ctx.fillStyle = '#fbbf24';
       ctx.beginPath();
-      ctx.arc(box.x + box.width / 2, box.y + box.height / 2 - 2, 8, 0, Math.PI * 2);
+      ctx.arc(box.x + box.width / 2, box.y + box.height / 2 - 2, 9, 0, Math.PI * 2);
       ctx.fill();
 
-      // Border
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3.5;
       ctx.strokeRect(box.x, box.y, box.width, box.height);
 
-      // HP bar for box
+      // HP Bar over Box
       const hpPct = Math.max(0, box.hp / box.maxHp);
-      const barW = box.width + 10;
-      const barH = 5;
-      const barX = box.x - 5;
-      const barY = box.y - 12;
+      const barW = box.width + 12;
+      const barH = 6;
+      const barX = box.x - 6;
+      const barY = box.y - 14;
 
       ctx.fillStyle = '#000000';
-      ctx.fillRect(barX, barY, barW, barH);
+      ctx.beginPath();
+      ctx.roundRect(barX - 1, barY - 1, barW + 2, barH + 2, 4);
+      ctx.fill();
+
       ctx.fillStyle = '#ef4444';
-      ctx.fillRect(barX, barY, barW * hpPct, barH);
+      ctx.beginPath();
+      ctx.roundRect(barX, barY, barW * hpPct, barH, 3);
+      ctx.fill();
     }
   }
 
   private renderPowerCubes(ctx: CanvasRenderingContext2D) {
     for (const cube of this.powerCubes) {
-      // Glowing green power cube
       ctx.save();
       ctx.translate(cube.x, cube.y);
-
-      // Glow aura
       ctx.shadowColor = '#10b981';
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 14;
 
       ctx.fillStyle = '#059669';
-      ctx.fillRect(-10, -7, 20, 17);
-
+      ctx.fillRect(-11, -7, 22, 18);
       ctx.fillStyle = '#34d399';
-      ctx.fillRect(-10, -10, 20, 17);
-
+      ctx.fillRect(-11, -11, 22, 18);
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(-4, -6, 8, 8);
+      ctx.fillRect(-4, -7, 8, 8);
 
-      ctx.strokeStyle = '#064e3b';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(-11, -11, 22, 22);
+      ctx.restore();
+    }
+  }
+
+  // Tactical In-Match Power-Ups (Speed, Shield, Double Damage, Heal, Super)
+  private renderPowerUps(ctx: CanvasRenderingContext2D) {
+    for (const pu of this.powerUps) {
+      if (pu.collected) continue;
+
+      ctx.save();
+      const bobOffset = Math.sin(pu.bobTimer) * 6;
+      ctx.translate(pu.x, pu.y + bobOffset);
+
+      // Ground beacon ring
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(0, 18 - bobOffset, 18, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      let badgeBg = '#38bdf8';
+      let icon = '⚡';
+      if (pu.type === 'shield') {
+        badgeBg = '#a855f7';
+        icon = '🛡️';
+      } else if (pu.type === 'damage') {
+        badgeBg = '#ef4444';
+        icon = '💥';
+      } else if (pu.type === 'heal') {
+        badgeBg = '#22c55e';
+        icon = '💚';
+      } else if (pu.type === 'super') {
+        badgeBg = '#eab308';
+        icon = '🌟';
+      }
+
+      ctx.shadowColor = badgeBg;
+      ctx.shadowBlur = 18;
+
+      // Outer circle orb
+      ctx.fillStyle = badgeBg;
+      ctx.beginPath();
+      ctx.arc(0, 0, pu.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.strokeStyle = '#000000';
       ctx.lineWidth = 2;
-      ctx.strokeRect(-10, -10, 20, 20);
+      ctx.stroke();
+
+      // Icon
+      ctx.font = '16px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(icon, 0, 1);
 
       ctx.restore();
     }
@@ -1579,30 +1773,29 @@ export class GameEngine {
       ctx.shadowBlur = p.isSuper ? 16 : 8;
 
       if (p.bulletType === 'sonic') {
-        // Acoustic sonic wave crescent
         ctx.beginPath();
         ctx.arc(0, 0, p.radius, -Math.PI / 3, Math.PI / 3);
         ctx.lineWidth = p.isSuper ? 14 : 8;
         ctx.strokeStyle = p.color;
         ctx.stroke();
       } else if (p.bulletType === 'punch') {
-        // Heavy boxing fist
         ctx.beginPath();
         ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.stroke();
       } else if (p.bulletType === 'poison') {
-        // Toxic dagger
         ctx.beginPath();
         ctx.moveTo(p.radius * 2, 0);
         ctx.lineTo(-p.radius, -p.radius);
         ctx.lineTo(-p.radius, p.radius);
         ctx.closePath();
         ctx.fill();
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
       } else {
-        // Standard bullet / shotgun pellet
         ctx.beginPath();
         ctx.ellipse(0, 0, p.radius * 1.5, p.radius, 0, 0, Math.PI * 2);
         ctx.fill();
@@ -1610,177 +1803,278 @@ export class GameEngine {
         ctx.beginPath();
         ctx.ellipse(2, 0, p.radius * 0.7, p.radius * 0.5, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
 
       ctx.restore();
     }
   }
 
+  // --- CARTOON BRAWLER RENDERING WITH WALKING ANIMATION & OVERHEAD HEALTH/AMMO BARS ---
   private renderBrawlers(ctx: CanvasRenderingContext2D) {
     for (const brawler of this.brawlers) {
       if (!brawler.isAlive) continue;
 
-      // Stealth invisibility check:
-      // If brawler is an enemy, and inside bush, and player is not close / not inside that bush
       const playerDist = Math.hypot(brawler.x - this.player.x, brawler.y - this.player.y);
       const isHiddenFromPlayer =
         !brawler.isPlayer &&
         brawler.isInBush &&
         (!this.player.isInBush || playerDist > 85);
 
-      if (isHiddenFromPlayer) {
-        continue; // Completely stealth invisible!
-      }
+      if (isHiddenFromPlayer) continue;
 
       ctx.save();
 
-      // If player is inside bush, show player as semi-transparent so they know they are hidden!
       if (brawler.isInBush) {
         ctx.globalAlpha = brawler.isPlayer ? 0.65 : 0.8;
       }
 
-      // Height offset during Super Leap
       let heightOffset = 0;
       if (brawler.isLeaping) {
-        // Parabolic arc peak
         heightOffset = Math.sin(brawler.leapProgress * Math.PI) * 120;
       }
 
-      // 1. Drop shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
-      ctx.beginPath();
-      ctx.ellipse(brawler.x, brawler.y + 6, brawler.radius * 1.1, brawler.radius * 0.55, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 2. Character Body (Isometric 2.5D tilt)
-      const brawlerY = brawler.y - heightOffset;
-      const def = BRAWLERS[brawler.brawlerId];
-
-      // Shield Aura
-      if (brawler.shieldTimer > 0) {
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(brawler.x, brawlerY, brawler.radius + 10, 0, Math.PI * 2);
-        ctx.stroke();
+      // Animated squash and stretch when running
+      let scaleX = 1;
+      let scaleY = 1;
+      let bobY = 0;
+      if (brawler.isMoving && !brawler.isLeaping) {
+        scaleX = 1 + Math.sin(brawler.walkCycle) * 0.08;
+        scaleY = 1 - Math.sin(brawler.walkCycle) * 0.08;
+        bobY = -Math.abs(Math.sin(brawler.walkCycle)) * 4;
       }
 
-      // Base circle
-      ctx.fillStyle = def.color;
+      // Recoil displacement (kicking back opposite rotation)
+      const recoilX = -Math.cos(brawler.rotation) * brawler.recoilOffset;
+      const recoilY = -Math.sin(brawler.rotation) * brawler.recoilOffset;
+
+      const drawX = brawler.x + recoilX;
+      const drawY = brawler.y + recoilY - heightOffset + bobY;
+
+      // 1. Drop shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.beginPath();
-      ctx.arc(brawler.x, brawlerY, brawler.radius, 0, Math.PI * 2);
+      ctx.ellipse(brawler.x, brawler.y + 6, brawler.radius * 1.15 * scaleX, brawler.radius * 0.55, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Black comic outline
-      ctx.strokeStyle = brawler.isPlayer ? '#ffffff' : '#000000';
-      ctx.lineWidth = brawler.isPlayer ? 3.5 : 2.5;
+      // 2. Active Power-Up Auras (Shield bubble, Double Damage fire ring, Speed sparks)
+      if (brawler.shieldTimer > 0) {
+        ctx.save();
+        ctx.strokeStyle = '#c084fc';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#a855f7';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(drawX, drawY, brawler.radius + 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (brawler.doubleDamageTimer > 0) {
+        ctx.save();
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#dc2626';
+        ctx.shadowBlur = 12;
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath();
+        ctx.arc(drawX, drawY, brawler.radius + 10, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 3. Cartoon Character Body
+      ctx.save();
+      ctx.translate(drawX, drawY);
+      ctx.scale(scaleX, scaleY);
+
+      const def = BRAWLERS[brawler.brawlerId];
+
+      // White hit flash if damaged recently
+      ctx.fillStyle = brawler.hitFlashTimer > 0 ? '#ffffff' : def.color;
+      ctx.beginPath();
+      ctx.arc(0, 0, brawler.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Thick black comic outline
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = brawler.isPlayer ? 4.5 : 3.5;
       ctx.stroke();
 
-      // Facing Direction & Weapon barrel
-      const barrelLen = brawler.radius + 12;
-      const bx = brawler.x + Math.cos(brawler.rotation) * barrelLen;
-      const by = brawlerY + Math.sin(brawler.rotation) * barrelLen;
+      // Highlight sheen
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.beginPath();
+      ctx.arc(-brawler.radius * 0.3, -brawler.radius * 0.3, brawler.radius * 0.5, 0, Math.PI * 2);
+      ctx.fill();
 
-      ctx.strokeStyle = '#1e293b';
-      ctx.lineWidth = 7;
+      // Weapon barrel pointing in rotation direction
+      const barrelLen = brawler.radius + 14;
+      const bx = Math.cos(brawler.rotation) * barrelLen;
+      const by = Math.sin(brawler.rotation) * barrelLen;
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 8;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(brawler.x, brawlerY);
+      ctx.moveTo(0, 0);
       ctx.lineTo(bx, by);
       ctx.stroke();
 
-      // Avatar Emoji / Character Icon in center
-      ctx.font = '20px serif';
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+
+      // Character Avatar Emoji
+      ctx.font = '22px serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(def.avatarEmoji, brawler.x, brawlerY);
+      ctx.fillText(def.avatarEmoji, 0, 0);
 
-      // 3. Name, Platform icon, Health Bar & Power Cubes Badge
+      ctx.restore(); // restore brawler transform
+
+      // 4. OVERHEAD HEALTH BAR & AMMO BARS (directly attached above each player in game!)
       if (!brawler.isLeaping) {
-        this.renderBrawlerOverhead(ctx, brawler, brawler.x, brawlerY - brawler.radius - 12);
+        this.renderOverheadHealthAndAmmo(ctx, brawler, drawX, drawY - brawler.radius - 16);
       }
 
       ctx.restore();
     }
   }
 
-  private renderBrawlerOverhead(
+  // OVERHEAD HEALTH BAR & 3 AMMO BARS (Requested: "sistema la vita e mettila sopra il giocatore nel gioco e non come gui")
+  private renderOverheadHealthAndAmmo(
     ctx: CanvasRenderingContext2D,
     brawler: BrawlerEntity,
     x: number,
     y: number
   ) {
-    // Platform icon symbol
-    const platformSymbol = brawler.platform === 'pc' ? '💻' : brawler.platform === 'tablet' ? '📱' : '📱';
-
-    // Name & Platform text
-    ctx.font = 'bold 11px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = brawler.isPlayer ? '#67e8f9' : '#ffffff';
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 3;
-    const nameText = `${platformSymbol} ${brawler.name}`;
-    ctx.strokeText(nameText, x, y - 10);
-    ctx.fillText(nameText, x, y - 10);
-
-    // Health Bar
-    const barW = 54;
-    const barH = 7;
+    const isPlayer = brawler.isPlayer;
+    const barW = isPlayer ? 78 : 62;
+    const barH = isPlayer ? 10 : 8;
     const barX = x - barW / 2;
-    const barY = y - 4;
-    const hpPct = Math.max(0, brawler.hp / brawler.maxHp);
+    const barY = y;
 
+    // Platform symbol and player name
+    const platformSymbol = brawler.platform === 'pc' ? '💻' : brawler.platform === 'tablet' ? '📱' : '📱';
+    const nameText = `${platformSymbol} ${brawler.name}`;
+
+    ctx.font = `bold ${isPlayer ? 12 : 11}px 'Rowdies', 'Outfit', system-ui`;
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3.5;
+    ctx.strokeText(nameText, x, barY - 14);
+    ctx.fillStyle = isPlayer ? '#67e8f9' : '#ffffff';
+    ctx.fillText(nameText, x, barY - 14);
+
+    // Active power-up indicator tag over head
+    if (brawler.speedBoostTimer > 0) {
+      ctx.fillText('⚡', x + barW / 2 + 10, barY - 14);
+    } else if (brawler.shieldTimer > 0) {
+      ctx.fillText('🛡️', x + barW / 2 + 10, barY - 14);
+    } else if (brawler.doubleDamageTimer > 0) {
+      ctx.fillText('💥', x + barW / 2 + 10, barY - 14);
+    }
+
+    // --- HEALTH BAR ---
+    const hpPct = Math.max(0, Math.min(1, brawler.hp / brawler.maxHp));
+
+    // Outer dark pill background with thick 3D border
     ctx.fillStyle = '#0f172a';
-    ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+    ctx.beginPath();
+    ctx.roundRect(barX - 2, barY - 2, barW + 4, barH + 4, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
 
-    // Green health bar (or yellow if low, red if critical)
+    // Color gradient based on health
     let hpColor = '#22c55e';
-    if (hpPct < 0.3) hpColor = '#ef4444';
-    else if (hpPct < 0.6) hpColor = '#eab308';
+    if (hpPct < 0.28) hpColor = '#ef4444';
+    else if (hpPct < 0.58) hpColor = '#eab308';
 
     ctx.fillStyle = hpColor;
-    ctx.fillRect(barX, barY, barW * hpPct, barH);
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, Math.max(0, barW * hpPct), barH, 4);
+    ctx.fill();
 
-    // Ammo bar indicators (3 small bars under health)
-    if (brawler.isPlayer) {
-      const ammoSlotW = (barW - 4) / 3;
-      const ammoSlotH = 3;
-      const ammoY = barY + barH + 2;
+    // Exact HP Numbers inside bar (crisp comic font!)
+    ctx.font = `bold ${isPlayer ? 9 : 8}px 'Outfit', system-ui`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2.5;
+    const hpText = `${Math.round(brawler.hp)} / ${brawler.maxHp}`;
+    ctx.strokeText(hpText, x, barY + barH / 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(hpText, x, barY + barH / 2);
 
-      for (let s = 0; s < 3; s++) {
-        const slotX = barX + s * (ammoSlotW + 2);
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(slotX, ammoY, ammoSlotW, ammoSlotH);
+    // --- 3 AMMO BARS (SLOTS) BENEATH HEALTH BAR ---
+    // (Requested: "fai in modo che i colpi una volta che vengano usati, scendano")
+    const ammoSlotGap = 2;
+    const ammoSlotW = (barW - ammoSlotGap * 2) / 3;
+    const ammoSlotH = isPlayer ? 4.5 : 3.5;
+    const ammoY = barY + barH + 3;
 
-        if (s < brawler.ammo) {
-          ctx.fillStyle = '#f97316'; // Full ammo slot
-          ctx.fillRect(slotX, ammoY, ammoSlotW, ammoSlotH);
-        } else if (s === brawler.ammo) {
-          ctx.fillStyle = '#fdba74'; // Reloading slot
-          ctx.fillRect(slotX, ammoY, ammoSlotW * brawler.ammoProgress, ammoSlotH);
-        }
+    for (let s = 0; s < 3; s++) {
+      const slotX = barX + s * (ammoSlotW + ammoSlotGap);
+
+      // Slot background (empty / used state)
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.roundRect(slotX, ammoY, ammoSlotW, ammoSlotH, 2);
+      ctx.fill();
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      if (s < brawler.ammo) {
+        // Slot is full: solid bright orange cartoon pill
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath();
+        ctx.roundRect(slotX, ammoY, ammoSlotW, ammoSlotH, 2);
+        ctx.fill();
+
+        // Top highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillRect(slotX + 1, ammoY, ammoSlotW - 2, 1);
+      } else if (s === brawler.ammo) {
+        // Current reloading slot: refills smoothly from 0% to 100%!
+        const fillW = Math.max(0, ammoSlotW * brawler.ammoProgress);
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.roundRect(slotX, ammoY, fillW, ammoSlotH, 2);
+        ctx.fill();
       }
     }
 
-    // Power Cubes badge on left of bar if brawler has power cubes
+    // Power Cubes badge on left of bar
     if (brawler.powerCubes > 0) {
-      const badgeX = barX - 14;
-      const badgeY = barY + 3;
+      const badgeX = barX - 16;
+      const badgeY = barY + barH / 2;
       ctx.fillStyle = '#059669';
       ctx.beginPath();
-      ctx.arc(badgeX, badgeY, 8, 0, Math.PI * 2);
+      ctx.arc(badgeX, badgeY, 9, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 1;
       ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 9px system-ui';
-      ctx.fillText(`${brawler.powerCubes}`, badgeX, badgeY + 3);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${brawler.powerCubes}`, badgeX, badgeY);
     }
   }
 
-  // Trajectory aiming reticle for player (attack line/cone/super)
+  // Trajectory aiming reticle
   private renderPlayerAimIndicator(ctx: CanvasRenderingContext2D) {
     if (!this.aimVector.isAiming && !this.aimVector.isSuperAiming) return;
 
@@ -1795,12 +2089,10 @@ export class GameEngine {
     ctx.translate(p.x, p.y);
 
     if (isSuper && def.superType === 'leap') {
-      // Leap target circle
       const targetDist = Math.min(range, Math.hypot(this.aimVector.x, this.aimVector.y) * 4);
       const tx = Math.cos(angle) * targetDist;
       const ty = Math.sin(angle) * targetDist;
 
-      // Dashed flight line
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.setLineDash([8, 8]);
@@ -1809,7 +2101,6 @@ export class GameEngine {
       ctx.lineTo(tx, ty);
       ctx.stroke();
 
-      // Impact crater target
       ctx.setLineDash([]);
       ctx.fillStyle = 'rgba(234, 179, 8, 0.25)';
       ctx.beginPath();
@@ -1819,7 +2110,6 @@ export class GameEngine {
       ctx.lineWidth = 4;
       ctx.stroke();
     } else {
-      // Aiming laser beam or shotgun cone
       const spread = def.attackSpread;
       ctx.fillStyle = isSuper ? 'rgba(234, 179, 8, 0.2)' : 'rgba(239, 68, 68, 0.2)';
       ctx.beginPath();
@@ -1828,7 +2118,6 @@ export class GameEngine {
       ctx.closePath();
       ctx.fill();
 
-      // Border lines
       ctx.strokeStyle = color;
       ctx.lineWidth = 2.5;
       ctx.setLineDash([10, 6]);
@@ -1854,30 +2143,25 @@ export class GameEngine {
     for (const d of this.damageNumbers) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, 1 - d.life);
-      ctx.font = `bold ${Math.round(18 * d.scale)}px 'Rowdies', 'Outfit', sans-serif`;
+      ctx.font = `bold ${Math.round(20 * d.scale)}px 'Rowdies', 'Outfit', sans-serif`;
       ctx.textAlign = 'center';
 
-      // Outline
       ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 4.5;
       ctx.strokeText(d.text, d.x, d.y);
 
-      // Text color
       ctx.fillStyle = d.color;
       ctx.fillText(d.text, d.x, d.y);
       ctx.restore();
     }
   }
 
-  // Poison Storm Zone rendering: toxic green smog outside circle
   private renderPoisonZone(ctx: CanvasRenderingContext2D) {
     const cx = this.poisonZone.centerX;
     const cy = this.poisonZone.centerY;
     const r = this.poisonZone.currentRadius;
 
     ctx.save();
-
-    // Draw toxic circle perimeter line
     ctx.strokeStyle = '#22c55e';
     ctx.lineWidth = 6;
     ctx.shadowColor = '#4ade80';
@@ -1886,13 +2170,11 @@ export class GameEngine {
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Smog particles around border
-    ctx.fillStyle = 'rgba(22, 101, 52, 0.35)';
+    ctx.fillStyle = 'rgba(22, 101, 52, 0.38)';
     ctx.beginPath();
     ctx.rect(0, 0, this.mapData.width, this.mapData.height);
     ctx.arc(cx, cy, r, 0, Math.PI * 2, true);
     ctx.fill();
-
     ctx.restore();
   }
 }

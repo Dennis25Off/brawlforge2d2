@@ -2,6 +2,15 @@ export type BrawlerId = 'blaze' | 'viper' | 'titan' | 'raven' | 'harmony';
 
 export type CrossPlayPlatform = 'mobile' | 'pc' | 'tablet';
 
+export interface LobbyPlayerInfo {
+  id: string;
+  name: string;
+  brawlerId: BrawlerId;
+  trophies: number;
+  platform: CrossPlayPlatform;
+  isBot: boolean;
+}
+
 export interface BrawlerDef {
   id: BrawlerId;
   name: string;
@@ -163,6 +172,18 @@ export interface BushZone {
   height: number;
 }
 
+export type PowerUpType = 'speed' | 'shield' | 'damage' | 'heal' | 'super';
+
+export interface PowerUpItem {
+  id: string;
+  type: PowerUpType;
+  x: number;
+  y: number;
+  radius: number;
+  bobTimer: number;
+  collected: boolean;
+}
+
 export interface BrawlerEntity {
   id: string;
   name: string;
@@ -180,7 +201,7 @@ export interface BrawlerEntity {
   maxHp: number;
   ammo: number;
   maxAmmo: number;
-  ammoProgress: number; // 0 to 1
+  ammoProgress: number; // 0 to 1 (reload progress of the current empty ammo bar)
   superCharge: number; // 0 to 100
   gadgetCharges: number;
   
@@ -188,14 +209,23 @@ export interface BrawlerEntity {
   kills: number;
   isAlive: boolean;
   isInBush: boolean;
+
+  // Animation states (squash & stretch, bobbing, recoil, hit flash)
+  walkCycle: number;
+  isMoving: boolean;
+  hitFlashTimer: number;
+  recoilOffset: number;
+  
+  // Power-up active timers
+  speedBoostTimer: number;
+  shieldTimer: number;
+  shieldRatio: number;
+  doubleDamageTimer: number;
   
   // Status effects
   poisonTicksLeft: number;
   poisonDamage: number;
   poisonAttackerId: string | null;
-  speedBoostTimer: number;
-  shieldTimer: number;
-  shieldRatio: number;
   bandAidCooldown: number; // Shelly/Viper passive
   isLeaping: boolean;
   leapProgress: number; // 0 to 1

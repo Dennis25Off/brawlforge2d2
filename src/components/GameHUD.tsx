@@ -353,42 +353,35 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
       </div>
 
-      {/* Center Screen: Bottom Health, Ammo and Super status */}
-      <div className="flex flex-col items-center justify-end w-full pb-2">
-        {/* Player Status Display */}
-        <div className="flex flex-col items-center gap-1.5 mb-2 pointer-events-auto">
-          {/* Health Bar */}
-          <div className="relative w-64 sm:w-72 h-8 rounded-full bg-slate-950 border-2 border-black overflow-hidden shadow-2xl">
-            <div
-              className={`h-full transition-all duration-150 rounded-full ${
-                hpPct < 30 ? 'bg-red-500' : hpPct < 60 ? 'bg-amber-500' : 'bg-emerald-500'
-              }`}
-              style={{ width: `${hpPct}%` }}
-            />
-            <div className="absolute inset-0 flex items-center justify-center font-black text-xs sm:text-sm text-white text-stroke-thin">
-              {playerHp} / {playerMaxHp} HP
+      {/* Active Power-Ups Banner (compact indicator when buff is active) */}
+      <div className="flex flex-col items-center justify-end w-full pb-2 pointer-events-none">
+        <div className="flex items-center gap-2">
+          {engine.player.speedBoostTimer > 0 && (
+            <div className="px-3 py-1 rounded-xl bg-sky-950/80 border-2 border-sky-400 text-sky-300 font-black text-xs shadow-lg animate-pulse flex items-center gap-1.5 backdrop-blur-sm">
+              <span>⚡ VELOCITÀ</span>
+              <span className="text-white bg-sky-600 px-1.5 py-0.2 rounded-md text-[10px]">
+                {Math.ceil(engine.player.speedBoostTimer)}s
+              </span>
             </div>
-          </div>
+          )}
 
-          {/* Ammo Slots */}
-          <div className="flex items-center gap-2 w-64 sm:w-72">
-            {[0, 1, 2].map((idx) => {
-              const isFilled = idx < playerAmmo;
-              return (
-                <div
-                  key={idx}
-                  className="flex-1 h-3 rounded-md bg-slate-950 border border-slate-700 overflow-hidden"
-                >
-                  <div
-                    className={`h-full transition-all duration-75 ${
-                      isFilled ? 'bg-amber-400' : 'bg-slate-800'
-                    }`}
-                    style={{ width: isFilled ? '100%' : '0%' }}
-                  />
-                </div>
-              );
-            })}
-          </div>
+          {engine.player.shieldTimer > 0 && (
+            <div className="px-3 py-1 rounded-xl bg-purple-950/80 border-2 border-purple-400 text-purple-300 font-black text-xs shadow-lg animate-pulse flex items-center gap-1.5 backdrop-blur-sm">
+              <span>🛡️ SCUDO -70%</span>
+              <span className="text-white bg-purple-600 px-1.5 py-0.2 rounded-md text-[10px]">
+                {Math.ceil(engine.player.shieldTimer)}s
+              </span>
+            </div>
+          )}
+
+          {engine.player.doubleDamageTimer > 0 && (
+            <div className="px-3 py-1 rounded-xl bg-red-950/80 border-2 border-red-500 text-red-300 font-black text-xs shadow-lg animate-pulse flex items-center gap-1.5 backdrop-blur-sm">
+              <span>💥 DOPPIO DANNO 2X</span>
+              <span className="text-white bg-red-600 px-1.5 py-0.2 rounded-md text-[10px]">
+                {Math.ceil(engine.player.doubleDamageTimer)}s
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

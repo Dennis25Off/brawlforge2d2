@@ -12,12 +12,12 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     badgeColor: '#ef4444',
     
     baseHp: 4200,
-    speed: 3.4, // Fast shooter (+ passive increases it further)
+    speed: 2.6, // Adjusted slightly slower for tactical cartoon feel
     reloadTime: 1.5,
     maxAmmo: 3,
     attackRange: 520,
     attackSpread: 0.08,
-    attackDamage: 520, // 6 x 520 = 3120 damage if all hit!
+    attackDamage: 300, // 6 x 520 = 3120 damage if all hit!
     bulletCount: 6,
     bulletSpeed: 15,
     bulletRadius: 6,
@@ -28,7 +28,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     superDesc: 'Scatena 12 colpi pesanti perforanti che distruggono le pareti e trapassano ogni nemico.',
     superRange: 600,
     superRadius: 9,
-    superDamage: 640,
+    superDamage: 440,
     superType: 'barrage',
 
     passiveName: 'Stivali Celesti',
@@ -52,12 +52,12 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     badgeColor: '#a855f7',
     
     baseHp: 5600,
-    speed: 3.0,
+    speed: 2.35,
     reloadTime: 1.6,
     maxAmmo: 3,
     attackRange: 420,
     attackSpread: 0.38, // Wide shotgun spread
-    attackDamage: 540, // 5 pellets x 540 = 2700 max close range
+    attackDamage: 220, // 5 pellets x 540 = 2700 max close range
     bulletCount: 5,
     bulletSpeed: 13,
     bulletRadius: 7,
@@ -68,7 +68,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     superDesc: 'Un colpo devastante che spazza via coperture, nemici e respinge violentemente all\'indietro.',
     superRange: 460,
     superRadius: 12,
-    superDamage: 720,
+    superDamage: 520,
     superType: 'blast',
 
     passiveName: 'Cerotto Vitale',
@@ -92,12 +92,12 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     badgeColor: '#3b82f6',
     
     baseHp: 8600,
-    speed: 3.1,
+    speed: 2.4,
     reloadTime: 1.1,
     maxAmmo: 3,
     attackRange: 260,
     attackSpread: 0.15,
-    attackDamage: 680, // 4 punches x 680 = 2720
+    attackDamage: 480, // 4 punches x 680 = 2720
     bulletCount: 4,
     bulletSpeed: 16,
     bulletRadius: 10,
@@ -108,7 +108,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     superDesc: 'Salta nei cieli e si schianta al suolo, provocando 3.000 danni ad area e distruggendo ogni riparo.',
     superRange: 550,
     superRadius: 120, // Huge AoE crater
-    superDamage: 3000,
+    superDamage: 2500,
     superType: 'leap',
 
     passiveName: 'Furia Bruciante',
@@ -132,12 +132,12 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     badgeColor: '#eab308',
     
     baseHp: 3800,
-    speed: 3.5, // Very high natural agility
+    speed: 2.7,
     reloadTime: 1.3,
     maxAmmo: 3,
     attackRange: 500,
     attackSpread: 0.28,
-    attackDamage: 620, // 3 daggers + poison damage over time
+    attackDamage: 420, // 3 daggers + poison damage over time
     bulletCount: 3,
     bulletSpeed: 17,
     bulletRadius: 5,
@@ -148,7 +148,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     superDesc: 'Spicca il volo lanciando una tempesta di 14 pugnali sia al decollo che all\'atterraggio.',
     superRange: 520,
     superRadius: 7,
-    superDamage: 580,
+    superDamage: 380,
     superType: 'daggers',
 
     passiveName: 'Tossina Indebolente',
@@ -172,12 +172,12 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     badgeColor: '#10b981',
     
     baseHp: 5800,
-    speed: 3.0,
+    speed: 2.35,
     reloadTime: 1.5,
     maxAmmo: 3,
     attackRange: 450,
     attackSpread: 0.55, // Very wide penetrating acoustic cone
-    attackDamage: 1100, // Pierces all enemies
+    attackDamage: 900, // Pierces all enemies
     bulletCount: 1,
     bulletSpeed: 12,
     bulletRadius: 28, // Wide sonic crescent
@@ -188,7 +188,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     superDesc: 'Suona un accordo melodico supremo che cura se stesso di ben 3.800 HP e scuote i nemici vicini.',
     superRange: 500,
     superRadius: 36,
-    superDamage: 800,
+    superDamage: 600,
     superType: 'heal_wave',
 
     passiveName: 'Da Capo',

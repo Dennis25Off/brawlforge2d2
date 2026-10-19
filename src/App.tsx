@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { loadPlayerProfile, savePlayerProfile } from './utils/storage';
-import { BrawlerId, PlayerProfile } from './types/game';
+import { BrawlerId, LobbyPlayerInfo, PlayerProfile } from './types/game';
 import { Lobby } from './components/Lobby';
 import { BattleArena } from './components/BattleArena';
 import { MatchmakingModal } from './components/MatchmakingModal';
@@ -16,6 +16,7 @@ import { TrophyRoadModal } from './components/TrophyRoadModal';
 export default function App() {
   const [profile, setProfile] = useState<PlayerProfile>(() => loadPlayerProfile());
   const [currentView, setCurrentView] = useState<'lobby' | 'matchmaking' | 'battle'>('lobby');
+  const [matchedPlayers, setMatchedPlayers] = useState<LobbyPlayerInfo[] | null>(null);
 
   // Modals state
   const [showBrawlersModal, setShowBrawlersModal] = useState(false);
@@ -40,18 +41,22 @@ export default function App() {
   };
 
   const handleStartMatchmaking = () => {
+    setMatchedPlayers(null);
     setCurrentView('matchmaking');
   };
 
-  const handleMatchReady = () => {
+  const handleMatchReady = (roster: LobbyPlayerInfo[]) => {
+    setMatchedPlayers(roster);
     setCurrentView('battle');
   };
 
   const handleExitToMenu = () => {
+    setMatchedPlayers(null);
     setCurrentView('lobby');
   };
 
   const handlePlayAgain = () => {
+    setMatchedPlayers(null);
     setCurrentView('matchmaking');
   };
 
@@ -94,6 +99,7 @@ export default function App() {
         <BattleArena
           profile={profile}
           selectedBrawlerId={profile.selectedBrawler}
+          matchedPlayers={matchedPlayers}
           onUpdateProfile={updateProfile}
           onExitToMenu={handleExitToMenu}
           onPlayAgain={handlePlayAgain}

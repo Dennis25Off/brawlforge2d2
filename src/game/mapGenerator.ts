@@ -1,4 +1,4 @@
-import { BushZone, MapObstacle, PowerBox } from '../types/game';
+import { BushZone, MapObstacle, PowerBox, PowerUpType } from '../types/game';
 
 export interface MapData {
   width: number;
@@ -7,6 +7,7 @@ export interface MapData {
   bushes: BushZone[];
   powerBoxes: PowerBox[];
   spawnPoints: { x: number; y: number }[];
+  powerUpSpawns: { x: number; y: number; type: PowerUpType }[];
 }
 
 export function generateBattleRoyaleMap(): MapData {
@@ -175,6 +176,18 @@ export function generateBattleRoyaleMap(): MapData {
     });
   }
 
+  // 7. Tactical Power-Ups Spawns (Speed boots, Shield, Double Damage, Mega Heal, Super Charge)
+  const powerUpSpawns: { x: number; y: number; type: PowerUpType }[] = [
+    { x: cx - 350, y: cy, type: 'speed' },
+    { x: cx + 350, y: cy, type: 'damage' },
+    { x: cx, y: cy - 350, type: 'shield' },
+    { x: cx, y: cy + 350, type: 'heal' },
+    { x: cx - 600, y: cy - 600, type: 'super' },
+    { x: cx + 600, y: cy - 600, type: 'damage' },
+    { x: cx - 600, y: cy + 600, type: 'speed' },
+    { x: cx + 600, y: cy + 600, type: 'shield' },
+  ];
+
   return {
     width,
     height,
@@ -182,5 +195,6 @@ export function generateBattleRoyaleMap(): MapData {
     bushes,
     powerBoxes,
     spawnPoints,
+    powerUpSpawns,
   };
 }

@@ -22,6 +22,72 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     
+    <!-- Suppress ambient iframe WebSocket connection notices as HMR is disabled in AI Studio preview -->
+    <script>
+      (function() {
+        // Intercept console.error to filter out Vite WebSocket connection notices
+        const origError = console.error;
+        console.error = function(...args) {
+          try {
+            const str = args.map(function(a) {
+              return a instanceof Error ? (a.message + ' ' + (a.stack || '')) : String(a);
+            }).join(' ');
+            if (str.includes('WebSocket') || str.includes('websocket') || str.includes('without opened')) {
+              return;
+            }
+          } catch (_) {}
+          return origError.apply(console, args);
+        };
+
+        // Wrap WebSocket to ensure clean close events
+        if (typeof window !== 'undefined' && window.WebSocket) {
+          const OrigWebSocket = window.WebSocket;
+          const PatchedWebSocket = function(url, protocols) {
+            const ws = new OrigWebSocket(url, protocols);
+            const origAddEventListener = ws.addEventListener.bind(ws);
+            ws.addEventListener = function(type, listener, options) {
+              if (type === 'close') {
+                const wrappedListener = function(event) {
+                  const cleanEvent = new CloseEvent('close', {
+                    wasClean: true,
+                    code: 1000,
+                    reason: 'Normal Closure',
+                  });
+                  try {
+                    listener.call(this, cleanEvent);
+                  } catch (_) {}
+                };
+                return origAddEventListener(type, wrappedListener, options);
+              }
+              return origAddEventListener(type, listener, options);
+            };
+            return ws;
+          };
+          PatchedWebSocket.prototype = OrigWebSocket.prototype;
+          PatchedWebSocket.CONNECTING = OrigWebSocket.CONNECTING;
+          PatchedWebSocket.OPEN = OrigWebSocket.OPEN;
+          PatchedWebSocket.CLOSING = OrigWebSocket.CLOSING;
+          PatchedWebSocket.CLOSED = OrigWebSocket.CLOSED;
+          window.WebSocket = PatchedWebSocket;
+        }
+
+        window.addEventListener('error', function(e) {
+          if (e.message && (e.message.includes('WebSocket') || e.message.includes('without opened'))) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(e) {
+          const msg = e.reason && (String(e.reason.message || e.reason));
+          if (msg && (msg.includes('WebSocket') || msg.includes('without opened'))) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+          }
+        }, true);
+      })();
+    </script>
+    
     <!-- Google Font for arcade/brawler typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

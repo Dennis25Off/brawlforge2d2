@@ -2,12 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { GameEngine } from '../game/GameEngine';
 import { GameHUD } from './GameHUD';
 import { GameOverModal } from './GameOverModal';
-import { BrawlerId, CrossPlayPlatform, KillFeedEntry, PlayerProfile } from '../types/game';
+import { BrawlerId, CrossPlayPlatform, KillFeedEntry, LobbyPlayerInfo, PlayerProfile } from '../types/game';
 import { sound } from '../utils/audio';
 
 interface BattleArenaProps {
   profile: PlayerProfile;
   selectedBrawlerId: BrawlerId;
+  matchedPlayers?: LobbyPlayerInfo[] | null;
   onUpdateProfile: (updater: (prev: PlayerProfile) => PlayerProfile) => void;
   onExitToMenu: () => void;
   onPlayAgain: () => void;
@@ -16,6 +17,7 @@ interface BattleArenaProps {
 export const BattleArena: React.FC<BattleArenaProps> = ({
   profile,
   selectedBrawlerId,
+  matchedPlayers,
   onUpdateProfile,
   onExitToMenu,
   onPlayAgain,
@@ -145,7 +147,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
           setPoisonPhase(phase);
           setPoisonTimer(timeToNext);
         },
-      }
+      },
+      matchedPlayers || undefined
     );
 
     engineRef.current = engine;

@@ -117,15 +117,16 @@ export function computeBotInputs(
     inputs.jump = true;
   }
 
-  // 3. DEFENSIVE SHIELD & DODGE (Anti-Stun Guard)
-  if (target.actionState === 'attack' && absDx < 85 && absDy < 60) {
-    // Shield blocks the attack and prevents stun completely!
-    if ((bot.shieldHealth || 100) > 30 && Math.random() < 0.5) {
-      inputs.shield = true;
-      return inputs;
-    } else if (bot.dodgeCooldown <= 0 && Math.random() < 0.6) {
-      inputs.dodge = true;
-      return inputs;
+  // 3. DEFENSIVE SHIELD & DODGE (Anti-Stun Guard with realistic reaction timing)
+  if (target.actionState === 'attack' && absDx < 90 && absDy < 60) {
+    if (frameTick % 36 === 0) {
+      if ((bot.shieldHealth || 100) > 40 && Math.random() < 0.25) {
+        inputs.shield = true;
+        return inputs;
+      } else if (bot.dodgeCooldown <= 0 && Math.random() < 0.25) {
+        inputs.dodge = true;
+        return inputs;
+      }
     }
   }
 

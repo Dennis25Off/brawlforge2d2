@@ -55,6 +55,18 @@ function MainApp() {
     setInGame(true);
   };
 
+  const handleQuickBotMatch = () => {
+    const botHeroes = ['katana_ronin', 'cyber_ninja', 'valiant_knight', 'thunder_brawler'];
+    handleStartMatch({
+      gameMode: '1v1',
+      stageId: 'celestial_altar',
+      players: [
+        { id: 'local_player', name: playerName, character: customization, isBot: false },
+        { id: 'bot_quick_1', name: 'Ren Jinrai [BOT]', character: { heroId: 'katana_ronin', skinPalette: '#f43f5e' }, isBot: true },
+      ],
+    });
+  };
+
   const handleMatchEnd = (results: {
     won: boolean;
     placement: number;
@@ -252,7 +264,7 @@ function MainApp() {
 
             {/* BOT PRACTICE */}
             <div
-              onClick={() => setShowMatchmaking(true)}
+              onClick={handleQuickBotMatch}
               className="group cursor-pointer p-4 rounded-xl sm:rounded-2xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 hover:border-amber-500/60 transition-all shadow-md flex items-center sm:flex-col sm:items-start justify-between gap-3 active:scale-[0.98]"
             >
               <div className="flex items-center sm:items-start gap-3 sm:flex-col">

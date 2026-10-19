@@ -156,7 +156,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         hasHitInCurrentAttack: false,
         hitstunTimer: 0,
         dodgeCooldown: 0,
-        invincibleTimer: 60, // 1 sec spawn shield
+        invincibleTimer: 20, // 0.3s quick spawn shield
         shieldHealth: 100,
         isShielding: false,
         chargeTime: 0,
@@ -193,6 +193,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const victim = fightersRef.current.find((f) => f.id === msg.targetId);
         if (victim) {
           victim.damagePercent += msg.damage;
+          if (msg.knockback) {
+            victim.vx = msg.knockback.vx;
+            victim.vy = msg.knockback.vy;
+          }
+          victim.actionState = 'hitstun';
+          victim.hitstunTimer = Math.min(32, Math.max(6, Math.floor(msg.damage * 1.1)));
           audio.playHit(msg.damage, msg.damage > 12);
           screenShakeRef.current = 10;
         }
@@ -468,7 +474,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       });
 
-      // 3. Resolve Hitbox Collisions
+      // 3. Update timers for remote human players (ensures invincibility counts down!)
+      for (const f of allFighters) {
+        if (f.id !== localPlayerId && !f.isBot) {
+          if (f.invincibleTimer > 0) f.invincibleTimer--;
+          if (f.dodgeCooldown > 0) f.dodgeCooldown--;
+          if (f.hitstunTimer > 0) f.hitstunTimer--;
+        }
+      }
+
+      // 4. Resolve Hitbox Collisions
       for (const hitbox of allActiveHitboxes) {
         for (const target of allFighters) {
           if (hitbox.ownerId !== target.id) {

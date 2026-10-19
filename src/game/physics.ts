@@ -1519,17 +1519,21 @@ export function updateFighterPhysics(
 
     if (isStartupDone && isActiveFrames && !fighter.hasHitInCurrentAttack) {
       const chargeBonus = 1 + (fighter.chargeTime / 35) * 0.45;
+      const forwardReach = Math.max(atk.boxOffset.w, 50);
+      const extraX = Math.max(0, atk.boxOffset.x);
+      const hbW = forwardReach + extraX + 16;
       const hbX = fighter.facing === 1
-        ? fighter.x + atk.boxOffset.x
-        : fighter.x - atk.boxOffset.x - atk.boxOffset.w;
-      const hbY = fighter.y + atk.boxOffset.y;
+        ? fighter.x - 12
+        : fighter.x - hbW + 12;
+      const hbY = fighter.y + atk.boxOffset.y - 6;
+      const hbH = Math.max(atk.boxOffset.h + 12, 44);
 
       // Spawn weapon effect particles
       if (atk.effectColor) {
         onSpawnParticle({
-          x: hbX + atk.boxOffset.w / 2,
-          y: hbY + atk.boxOffset.h / 2,
-          vx: fighter.facing * 2.5,
+          x: fighter.facing === 1 ? fighter.x + forwardReach * 0.6 : fighter.x - forwardReach * 0.6,
+          y: hbY + hbH / 2,
+          vx: fighter.facing * 3,
           vy: 0,
           color: atk.effectColor,
           size: atk.isSmash ? 10 : 6,
@@ -1546,8 +1550,8 @@ export function updateFighterPhysics(
         ownerHeroId: fighter.customization.heroId,
         x: hbX,
         y: hbY,
-        width: atk.boxOffset.w,
-        height: atk.boxOffset.h,
+        width: hbW,
+        height: hbH,
         damage: Math.round(atk.damage * hero.damageMult * chargeBonus),
         baseKnockback: atk.baseKnockback * chargeBonus,
         knockbackScaling: atk.knockbackScaling * chargeBonus,

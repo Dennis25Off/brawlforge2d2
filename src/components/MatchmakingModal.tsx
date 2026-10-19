@@ -22,6 +22,26 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({ onStartMatch
   const [customRoom, setCustomRoom] = useState<{ code: string; isHost: boolean; players: any[] } | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
 
+  const startLocalBotGame = (mode: '1v1' | 'ffa', stage: string) => {
+    setIsSearching(false);
+    const botHeroes = ['katana_ronin', 'cyber_ninja', 'valiant_knight', 'thunder_brawler'];
+    const opponentCount = mode === '1v1' ? 1 : 3;
+    const botPlayers = Array.from({ length: opponentCount }).map((_, i) => ({
+      id: `bot_local_${Date.now()}_${i + 1}`,
+      name: `${i === 0 ? 'Ren Jinrai' : i === 1 ? 'Kage Zero' : 'Vance'} [BOT]`,
+      character: { heroId: botHeroes[i % botHeroes.length], skinPalette: '#38bdf8' },
+      isBot: true,
+    }));
+    onStartMatch({
+      gameMode: mode,
+      stageId: stage,
+      players: [
+        { id: multiplayer.getPlayerId() || 'local_player', name: playerName, character: customization, isBot: false },
+        ...botPlayers,
+      ],
+    });
+  };
+
   // 30 seconds countdown effect
   useEffect(() => {
     let interval: any = null;
@@ -29,10 +49,13 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({ onStartMatch
       interval = setInterval(() => {
         setSearchSeconds((prev) => {
           const next = prev + 1;
-          // If 30 seconds reached, trigger instant bot match fallback if not already started
           if (next >= 30) {
-            setStatusMessage('30 secondi trascorsi: Inizializzazione Bot da combattimento...');
-            multiplayer.startInstantBotMatch(selectedMode, { name: playerName, character: customization }, selectedStage);
+            setStatusMessage('Inizializzazione Bot da combattimento...');
+            if (multiplayer.isConnected()) {
+              multiplayer.startInstantBotMatch(selectedMode, { name: playerName, character: customization }, selectedStage);
+            } else {
+              startLocalBotGame(selectedMode, selectedStage);
+            }
           }
           return next;
         });
@@ -77,7 +100,14 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({ onStartMatch
   const handleStartSearch = () => {
     setIsSearching(true);
     setStatusMessage('Cercando guerrieri nel reame...');
-    multiplayer.joinQueue(selectedMode, { name: playerName, character: customization });
+    if (multiplayer.isConnected()) {
+      multiplayer.joinQueue(selectedMode, { name: playerName, character: customization });
+    } else {
+      // Offline fallback: start bot match after 1.5s simulated queue
+      setTimeout(() => {
+        startLocalBotGame(selectedMode, selectedStage);
+      }, 1200);
+    }
   };
 
   const handleCancelSearch = () => {
@@ -89,7 +119,14 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({ onStartMatch
   const handleInstantBot = () => {
     setIsSearching(true);
     setStatusMessage('Caricamento partita rapida con Bot...');
-    multiplayer.startInstantBotMatch(selectedMode, { name: playerName, character: customization }, selectedStage);
+    if (multiplayer.isConnected()) {
+      multiplayer.startInstantBotMatch(selectedMode, { name: playerName, character: customization }, selectedStage);
+      setTimeout(() => {
+        startLocalBotGame(selectedMode, selectedStage);
+      }, 1200);
+    } else {
+      startLocalBotGame(selectedMode, selectedStage);
+    }
   };
 
   const handleCreateRoom = () => {

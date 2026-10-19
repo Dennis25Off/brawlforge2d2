@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+/* Custom animation for phone rotation prompt */
+@keyframes phoneRotate {
+  0%, 15% {
+    transform: rotate(0deg) scale(1);
+  }
+  45%, 75% {
+    transform: rotate(-90deg) scale(1.05);
+  }
+  90%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+.animate-phoneRotate {
+  animation: phoneRotate 3.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Prevent unwanted browser gestures during touch combat */
+.touch-combat-area {
+  touch-action: none !important;
+  -webkit-touch-callout: none !important;
+  user-select: none !important;
+}

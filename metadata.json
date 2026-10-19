@@ -1,0 +1,6 @@
+{
+  "name": "BrawlForge 2D - Platform Fighter",
+  "description": "Multiplayer 2D platform fighter with fast matchmaking, custom characters, bots, ranking, and shop.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

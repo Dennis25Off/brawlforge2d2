@@ -12,6 +12,7 @@ import { HEROES } from './game/heroes';
 import {
   Swords,
   Users,
+  User,
   Bot,
   Sparkles,
   Trophy,
@@ -113,233 +114,230 @@ function MainApp() {
         onOpenLeaderboard={() => setShowLeaderboard(true)}
       />
 
-      {/* Main Hub Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col gap-6 md:gap-8">
-        {/* HERO SHOWCASE BANNER */}
-        <div className="relative w-full rounded-3xl overflow-hidden border border-zinc-800/80 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 p-6 md:p-10 shadow-2xl">
+      {/* Main Hub Body - Mobile-First & Accessible */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 md:p-8 pb-24 md:pb-8 flex flex-col gap-4 sm:gap-6 md:gap-8">
+        {/* HERO SHOWCASE CARD (Streamlined for Mobile & Desktop) */}
+        <div className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden border border-zinc-800/80 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 p-4 sm:p-6 md:p-8 shadow-2xl">
           {/* Subtle cosmic glow */}
           <div
             style={{ backgroundColor: currentHero.primaryColor }}
-            className="absolute -top-24 -right-24 w-96 h-96 rounded-full blur-[130px] opacity-20 pointer-events-none"
+            className="absolute -top-20 -right-20 w-72 sm:w-96 h-72 sm:h-96 rounded-full blur-[110px] opacity-25 pointer-events-none"
           />
 
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="max-w-xl text-center md:text-left space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-800/60 text-xs font-bold text-cyan-300">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                <span>STAGIONE 1 &bull; ARENA MULTIPLAYER ATTIVA</span>
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-5 sm:gap-6">
+            {/* Left: Quick Battle Headline & CTAs */}
+            <div className="w-full md:max-w-xl text-center md:text-left space-y-2.5 sm:space-y-3">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-800/70 text-[10px] sm:text-xs font-bold text-cyan-300">
+                <Sparkles className="w-3 h-3 text-cyan-400" />
+                <span>STAGIONE 1 &bull; ARENA ATTIVA</span>
               </div>
 
-              <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white uppercase">
+              <h1 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight text-white uppercase leading-tight">
                 SCENDI SULLA <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">PIATTAFORMA</span>
               </h1>
 
-              <p className="text-sm md:text-base text-zinc-400 leading-relaxed">
-                Platform fighter 2D in tempo reale in stile Brawlhalla. Scaglia i tuoi avversari oltre i confini del ring
-                con combo aeree, smash e salti a parete.
+              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed max-w-lg mx-auto md:mx-0">
+                Lotta aerea, attacchi pesanti e salti a parete. Scaglia i tuoi avversari oltre i confini del ring!
               </p>
 
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
+              {/* Big Touch-Friendly Primary Actions */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center md:justify-start gap-2.5 pt-1.5">
                 <button
                   onClick={() => setShowMatchmaking(true)}
-                  className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-zinc-950 font-black text-sm uppercase tracking-wider shadow-[0_0_25px_rgba(6,182,212,0.4)] hover:brightness-110 active:scale-95 transition-all flex items-center gap-2"
+                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-zinc-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 min-h-[46px]"
                 >
-                  <Swords className="w-5 h-5" />
-                  <span>TROVA PARTITA RAPIDA</span>
+                  <Swords className="w-4 h-4" />
+                  <span>COMBATTI SUBITO</span>
                 </button>
 
                 <button
                   onClick={() => setShowCustomizer(true)}
-                  className="px-5 py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 font-bold text-xs uppercase tracking-wider active:scale-95 transition-all flex items-center gap-2"
+                  className="w-full sm:w-auto px-4 py-3 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 font-bold text-xs uppercase tracking-wider active:scale-95 transition-all flex items-center justify-center gap-2 min-h-[46px]"
                 >
+                  <User className="w-3.5 h-3.5 text-purple-400" />
                   <span>Personalizza ({currentHero.name})</span>
-                  <ChevronRight className="w-4 h-4 text-zinc-500" />
                 </button>
               </div>
             </div>
 
-            {/* Hero Card Showcase */}
-            <div className="w-full md:w-80 p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800/90 shadow-xl flex flex-col items-center text-center">
+            {/* Right: Compact Hero Badge */}
+            <div
+              onClick={() => setShowCustomizer(true)}
+              className="cursor-pointer w-full md:w-72 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-zinc-900/80 hover:bg-zinc-900 border border-zinc-800/90 shadow-xl flex items-center md:flex-col text-left md:text-center gap-3.5 transition-all active:scale-[0.98]"
+            >
               <div
                 style={{ backgroundColor: customization.skinPalette || currentHero.primaryColor }}
-                className="w-20 h-20 rounded-2xl flex items-center justify-center font-black text-3xl text-zinc-950 shadow-inner mb-3 border border-white/20"
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center font-black text-xl sm:text-2xl text-zinc-950 shadow-inner shrink-0 border border-white/20"
               >
                 {currentHero.name.slice(0, 1)}
               </div>
 
-              <h3 className="text-lg font-black text-white">{currentHero.name}</h3>
-              <span className="text-xs font-semibold text-cyan-400">{currentHero.title}</span>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm sm:text-base font-black text-white truncate">{currentHero.name}</h3>
+                <span className="text-[11px] font-semibold text-cyan-400 block truncate">{currentHero.title}</span>
 
-              <div className="w-full mt-4 pt-3 border-t border-zinc-800 grid grid-cols-2 gap-2 text-xs text-left">
-                <div className="p-2 rounded-xl bg-zinc-950/60 border border-zinc-800/60">
-                  <span className="text-[10px] text-zinc-500 block uppercase font-bold">Arma</span>
-                  <span className="font-bold text-zinc-200 capitalize">{currentHero.weaponType}</span>
-                </div>
-                <div className="p-2 rounded-xl bg-zinc-950/60 border border-zinc-800/60">
-                  <span className="text-[10px] text-zinc-500 block uppercase font-bold">Firma</span>
-                  <span className="font-bold text-amber-400 truncate block">{currentHero.signatureName}</span>
+                <div className="mt-2 flex items-center gap-2 text-[10px]">
+                  <span className="px-2 py-0.5 rounded bg-zinc-950 border border-zinc-800 font-bold text-zinc-300 capitalize">
+                    {currentHero.weaponType}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-zinc-950 border border-zinc-800 font-bold text-amber-400 truncate">
+                    {currentHero.signatureName}
+                  </span>
                 </div>
               </div>
+
+              <ChevronRight className="w-5 h-5 text-zinc-600 md:hidden shrink-0" />
             </div>
           </div>
         </div>
 
-        {/* QUICK GAME MODES GRID */}
+        {/* QUICK GAME MODES (Mobile-Optimized Touch Cards) */}
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-black text-white tracking-wide uppercase flex items-center gap-2">
-              <Zap className="w-5 h-5 text-amber-400" />
-              <span>Modalità Rapide</span>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs sm:text-sm font-black text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-amber-400" />
+              <span>Modalità di Gioco</span>
             </h2>
             <button
               onClick={() => setShowHowToPlay(true)}
-              className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 font-semibold"
+              className="text-[11px] sm:text-xs text-zinc-400 hover:text-white flex items-center gap-1 font-semibold"
             >
-              <HelpCircle className="w-4 h-4 text-cyan-400" />
+              <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
               <span>Come Si Gioca</span>
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* 1v1 DUEL */}
             <div
               onClick={() => setShowMatchmaking(true)}
-              className="group cursor-pointer p-5 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 hover:border-cyan-500/60 transition-all duration-200 shadow-lg flex flex-col justify-between"
+              className="group cursor-pointer p-4 rounded-xl sm:rounded-2xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 hover:border-cyan-500/60 transition-all shadow-md flex items-center sm:flex-col sm:items-start justify-between gap-3 active:scale-[0.98]"
             >
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                  <Swords className="w-6 h-6" />
+              <div className="flex items-center sm:items-start gap-3 sm:flex-col">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
+                  <Swords className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-bold text-white group-hover:text-cyan-400 transition-colors">
-                  Duello Classificato 1v1
-                </h3>
-                <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-                  Sfida un altro giocatore in matchmaking. Se nessuno si collega entro 30s, subentra un Bot
-                  automaticamente.
-                </p>
+                <div>
+                  <h3 className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">
+                    Duello 1v1
+                  </h3>
+                  <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug line-clamp-2">
+                    Sfida 1v1 competitiva con sistema ELO. Bot automatico se nessun avversario.
+                  </p>
+                </div>
               </div>
-
-              <div className="mt-5 pt-3 border-t border-zinc-800/60 flex items-center justify-between text-xs font-bold text-cyan-400">
-                <span>Inizia Coda</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
+              <ChevronRight className="w-4 h-4 text-cyan-400 shrink-0 sm:self-end" />
             </div>
 
             {/* 4P FFA */}
             <div
               onClick={() => setShowMatchmaking(true)}
-              className="group cursor-pointer p-5 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 hover:border-purple-500/60 transition-all duration-200 shadow-lg flex flex-col justify-between"
+              className="group cursor-pointer p-4 rounded-xl sm:rounded-2xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 hover:border-purple-500/60 transition-all shadow-md flex items-center sm:flex-col sm:items-start justify-between gap-3 active:scale-[0.98]"
             >
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                  <Users className="w-6 h-6" />
+              <div className="flex items-center sm:items-start gap-3 sm:flex-col">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                  <Users className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-bold text-white group-hover:text-purple-400 transition-colors">
-                  Tutti Contro Tutti 4P
-                </h3>
-                <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-                  4 guerrieri contemporaneamente sulla stessa isola. Il combattente con più KO e sopravvissuto vince.
-                </p>
+                <div>
+                  <h3 className="text-sm font-bold text-white group-hover:text-purple-400 transition-colors">
+                    Rissa 4P
+                  </h3>
+                  <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug line-clamp-2">
+                    4 guerrieri contemporaneamente nell'arena. Vince chi fa più KO.
+                  </p>
+                </div>
               </div>
-
-              <div className="mt-5 pt-3 border-t border-zinc-800/60 flex items-center justify-between text-xs font-bold text-purple-400">
-                <span>Inizia Rissa</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
+              <ChevronRight className="w-4 h-4 text-purple-400 shrink-0 sm:self-end" />
             </div>
 
             {/* BOT PRACTICE */}
             <div
-              onClick={() => {
-                setShowMatchmaking(true);
-              }}
-              className="group cursor-pointer p-5 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 hover:border-amber-500/60 transition-all duration-200 shadow-lg flex flex-col justify-between"
+              onClick={() => setShowMatchmaking(true)}
+              className="group cursor-pointer p-4 rounded-xl sm:rounded-2xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 hover:border-amber-500/60 transition-all shadow-md flex items-center sm:flex-col sm:items-start justify-between gap-3 active:scale-[0.98]"
             >
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                  <Bot className="w-6 h-6" />
+              <div className="flex items-center sm:items-start gap-3 sm:flex-col">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                  <Bot className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-bold text-white group-hover:text-amber-400 transition-colors">
-                  Allenamento Istantaneo Bot
-                </h3>
-                <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-                  Lancia subito un incontro offline contro l'intelligenza artificiale per scaldarti e testare combo.
-                </p>
+                <div>
+                  <h3 className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors">
+                    Allenamento Bot
+                  </h3>
+                  <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug line-clamp-2">
+                    Partita immediata contro l'IA per testare combo, scudo e salti.
+                  </p>
+                </div>
               </div>
-
-              <div className="mt-5 pt-3 border-t border-zinc-800/60 flex items-center justify-between text-xs font-bold text-amber-400">
-                <span>Allenati Ora</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
+              <ChevronRight className="w-4 h-4 text-amber-400 shrink-0 sm:self-end" />
             </div>
           </div>
         </div>
 
         {/* DAILY QUESTS & ELO PREVIEW */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Daily Quests */}
-          <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Target className="w-4 h-4 text-emerald-400" />
-                <span>Missioni Giornaliere</span>
-              </span>
-              <span className="text-[10px] text-zinc-500 font-mono">Reset in 12h</span>
-            </div>
-
-            <div className="space-y-2.5">
-              <div className="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800/80 flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-white block">Infliggi 250% di danno totale</span>
-                  <span className="text-[11px] text-zinc-400">Completa incontri in qualsiasi modalità</span>
-                </div>
-                <span className="text-xs font-mono font-bold text-amber-400">+100 Monete</span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800/80 flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-white block">Esegui 2 KO con attacchi Smash</span>
-                  <span className="text-[11px] text-zinc-400">Carica il colpo pesante al momento giusto</span>
-                </div>
-                <span className="text-xs font-mono font-bold text-cyan-400">+10 Gemme</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Stats & Leaderboard Shortcut */}
-          <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800 flex flex-col justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+          {/* Quick Stats & Leaderboard */}
+          <div className="p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-zinc-900/60 border border-zinc-800 flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Trophy className="w-4 h-4 text-yellow-400" />
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-yellow-400" />
                   <span>Stato Classificato</span>
                 </span>
                 <span className="font-mono text-xs font-bold text-amber-400">{stats.elo} ELO</span>
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
-                  <span className="text-[10px] text-zinc-500 block uppercase font-bold">Vittorie</span>
-                  <span className="font-mono text-base font-black text-emerald-400">{stats.wins}</span>
+                <div className="p-2 sm:p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
+                  <span className="text-[9px] text-zinc-500 block uppercase font-bold">Vittorie</span>
+                  <span className="font-mono text-sm sm:text-base font-black text-emerald-400">{stats.wins}</span>
                 </div>
-                <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
-                  <span className="text-[10px] text-zinc-500 block uppercase font-bold">Sconfitte</span>
-                  <span className="font-mono text-base font-black text-rose-400">{stats.losses}</span>
+                <div className="p-2 sm:p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
+                  <span className="text-[9px] text-zinc-500 block uppercase font-bold">Sconfitte</span>
+                  <span className="font-mono text-sm sm:text-base font-black text-rose-400">{stats.losses}</span>
                 </div>
-                <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
-                  <span className="text-[10px] text-zinc-500 block uppercase font-bold">KO Fatti</span>
-                  <span className="font-mono text-base font-black text-amber-400">{stats.kos}</span>
+                <div className="p-2 sm:p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
+                  <span className="text-[9px] text-zinc-500 block uppercase font-bold">KO Fatti</span>
+                  <span className="font-mono text-sm sm:text-base font-black text-amber-400">{stats.kos}</span>
                 </div>
               </div>
             </div>
 
             <button
               onClick={() => setShowLeaderboard(true)}
-              className="mt-4 w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+              className="mt-3 w-full py-2.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 active:scale-95"
             >
               <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-              <span>Vedi Classifica Globale Top 50</span>
+              <span>Vedi Classifica Top 50</span>
             </button>
+          </div>
+
+          {/* Daily Quests */}
+          <div className="p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Missioni Giornaliere</span>
+              </span>
+              <span className="text-[10px] text-zinc-500 font-mono">Reset 12h</span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="p-2.5 sm:p-3 rounded-xl bg-zinc-950/60 border border-zinc-800/80 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-white block">Infliggi 250% danno totale</span>
+                  <span className="text-[10px] text-zinc-400">Incontri in qualsiasi modalità</span>
+                </div>
+                <span className="text-[11px] font-mono font-bold text-amber-400 shrink-0 ml-2">+100 Monete</span>
+              </div>
+
+              <div className="p-2.5 sm:p-3 rounded-xl bg-zinc-950/60 border border-zinc-800/80 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-white block">Esegui 2 KO con attacco Smash</span>
+                  <span className="text-[10px] text-zinc-400">Carica il colpo pesante</span>
+                </div>
+                <span className="text-[11px] font-mono font-bold text-cyan-400 shrink-0 ml-2">+10 Gemme</span>
+              </div>
+            </div>
           </div>
         </div>
       </main>

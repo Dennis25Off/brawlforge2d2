@@ -103,28 +103,28 @@ export const HUD: React.FC<HUDProps> = ({ fighters, timeLeftSeconds, onLeaveMatc
           return (
             <div
               key={f.id}
-              className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-zinc-900/85 border transition-all duration-200 backdrop-blur-md ${borderGlow} ${
+              className={`flex items-center gap-1.5 sm:gap-2.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-zinc-900/85 border transition-all duration-200 backdrop-blur-md ${borderGlow} ${
                 !isAlive ? 'opacity-40 grayscale' : ''
               }`}
             >
               {/* Hero color swatch / icon */}
               <div
                 style={{ backgroundColor: hero.primaryColor }}
-                className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs text-zinc-950 shadow-inner"
+                className="w-6 h-6 sm:w-8 sm:h-8 rounded-md sm:rounded-lg flex items-center justify-center font-black text-[10px] sm:text-xs text-zinc-950 shadow-inner shrink-0"
               >
                 {hero.name.slice(0, 1)}
               </div>
 
               {/* Info: Name, Stocks, Damage */}
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-zinc-200 truncate max-w-[90px]">{f.name}</span>
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] sm:text-xs font-bold text-zinc-200 truncate max-w-[55px] sm:max-w-[85px]">{f.name}</span>
                   {f.isBot && (
-                    <span className="text-[9px] px-1 py-0.2 rounded bg-zinc-800 border border-zinc-700 text-zinc-400 font-mono">
+                    <span className="text-[8px] px-1 py-0.2 rounded bg-zinc-800 border border-zinc-700 text-zinc-400 font-mono">
                       BOT
                     </span>
                   )}
-                  <span className="text-[8px] font-semibold text-amber-400/90 truncate max-w-[80px]">
+                  <span className="hidden sm:inline text-[8px] font-semibold text-amber-400/90 truncate max-w-[60px]">
                     {hero.weaponName.split(' ')[0]}
                   </span>
                 </div>
@@ -134,7 +134,7 @@ export const HUD: React.FC<HUDProps> = ({ fighters, timeLeftSeconds, onLeaveMatc
                   {Array.from({ length: 3 }).map((_, i) => (
                     <div
                       key={i}
-                      className={`w-2.5 h-2.5 rounded-full transition-all ${
+                      className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition-all ${
                         i < f.stocks
                           ? 'bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.8)]'
                           : 'bg-zinc-800 border border-zinc-700'
@@ -144,11 +144,11 @@ export const HUD: React.FC<HUDProps> = ({ fighters, timeLeftSeconds, onLeaveMatc
                 </div>
               </div>
 
-              {/* Big Damage Percent */}
-              <div className="ml-2 pl-2 border-l border-zinc-800 flex flex-col items-end">
-                <span className={`font-mono text-base md:text-lg leading-none ${dmgColor}`}>
+              {/* Damage Percent */}
+              <div className="ml-1 sm:ml-2 pl-1 sm:pl-2 border-l border-zinc-800 flex flex-col items-end">
+                <span className={`font-mono text-xs sm:text-base md:text-lg leading-none ${dmgColor}`}>
                   {f.damagePercent}
-                  <span className="text-xs font-normal opacity-80">%</span>
+                  <span className="text-[9px] sm:text-xs font-normal opacity-80">%</span>
                 </span>
               </div>
             </div>

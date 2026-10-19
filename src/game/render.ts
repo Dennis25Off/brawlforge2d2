@@ -776,28 +776,27 @@ function drawWeapon(ctx: CanvasRenderingContext2D, fighter: FighterEntity, hero:
 
 function drawOverheadHUD(ctx: CanvasRenderingContext2D, fighter: FighterEntity) {
   ctx.save();
-  ctx.translate(fighter.x, fighter.y - fighter.height / 2 - 24);
+  ctx.translate(fighter.x, fighter.y - fighter.height / 2 - 20);
 
-  // Player Name & Bot Tag
-  ctx.font = 'bold 11px "Plus Jakarta Sans", sans-serif';
+  // Player Name & Bot Tag - compact & refined for mobile
+  ctx.font = '600 9px "Plus Jakarta Sans", sans-serif';
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f8fafc';
-  ctx.shadowColor = 'rgba(0,0,0,0.8)';
-  ctx.shadowBlur = 4;
-  ctx.fillText(fighter.name, 0, -18);
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur = 3;
+  ctx.fillText(fighter.name, 0, -15);
 
-  // Damage Percentage (changes color as damage grows!)
-  // 0% = White -> 80% = Orange -> 150%+ = Intense Red/Crimson
+  // Damage Percentage
   let dmgColor = '#ffffff';
   if (fighter.damagePercent > 140) dmgColor = '#ef4444';
   else if (fighter.damagePercent > 90) dmgColor = '#f97316';
   else if (fighter.damagePercent > 45) dmgColor = '#facc15';
 
-  ctx.font = '900 14px "JetBrains Mono", monospace';
+  ctx.font = '800 12px "JetBrains Mono", monospace';
   ctx.fillStyle = dmgColor;
   ctx.shadowColor = dmgColor;
-  ctx.shadowBlur = 8;
-  ctx.fillText(`${fighter.damagePercent}%`, 0, -4);
+  ctx.shadowBlur = 6;
+  ctx.fillText(`${fighter.damagePercent}%`, 0, -3);
   ctx.shadowBlur = 0;
 
   // Stocks left (dots / icons)

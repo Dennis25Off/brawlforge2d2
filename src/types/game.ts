@@ -9,6 +9,8 @@ export interface LobbyPlayerInfo {
   trophies: number;
   platform: CrossPlayPlatform;
   isBot: boolean;
+  roomId?: string;
+  spawnIndex?: number;
 }
 
 export interface BrawlerDef {
@@ -188,6 +190,7 @@ export interface BrawlerEntity {
   id: string;
   name: string;
   isPlayer: boolean;
+  isRemotePlayer?: boolean;
   platform: CrossPlayPlatform;
   brawlerId: BrawlerId;
   x: number;

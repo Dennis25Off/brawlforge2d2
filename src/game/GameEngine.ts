@@ -82,6 +82,15 @@ export class GameEngine {
   private lastTime = 0;
   private callbacks: GameEngineCallbacks;
 
+  // Real-time multiplayer synchronization
+  public roomId: string = 'room_default';
+  private broadcastChannel: BroadcastChannel | null = null;
+  private multiplayerSyncTimer = 0;
+  private lastProcessedDamageTime = 0;
+  private pendingProjectilesToSend: any[] = [];
+  private pendingDamageToSend: any[] = [];
+  private pendingKillsToSend: any[] = [];
+
   // Natural health regeneration timer for player
   private playerCombatTimer = 0;
 
@@ -95,11 +104,13 @@ export class GameEngine {
     playerUsername: string,
     playerPlatform: CrossPlayPlatform,
     callbacks: GameEngineCallbacks,
-    matchedPlayers?: LobbyPlayerInfo[]
+    matchedPlayers?: LobbyPlayerInfo[],
+    roomId?: string
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.callbacks = callbacks;
+    this.roomId = roomId || matchedPlayers?.[0]?.roomId || `cs_room_${Date.now()}`;
     this.mapData = generateBattleRoyaleMap();
     this.obstacles = [...this.mapData.obstacles];
     this.powerBoxes = [...this.mapData.powerBoxes];
@@ -115,7 +126,7 @@ export class GameEngine {
       collected: false,
     }));
 
-    // Initialize 10 combatants (Player + 9 Bots)
+    // Initialize 10 combatants (Player + 9 Combatants from Matchmaking: Real Players + Filled Bots)
     const shuffledSpawns = [...this.mapData.spawnPoints].sort(() => Math.random() - 0.5);
     const brawlerIds: BrawlerId[] = ['blaze', 'viper', 'titan', 'raven', 'harmony'];
 
@@ -123,9 +134,12 @@ export class GameEngine {
     const playerDef = BRAWLERS[playerBrawlerId];
     const levelMult = 1 + (playerLevel - 1) * 0.06;
     const playerHp = Math.round(playerDef.baseHp * levelMult);
+    const selfId = (matchedPlayers && matchedPlayers[0] && !matchedPlayers[0].isBot)
+      ? matchedPlayers[0].id
+      : `player_${playerUsername}_${Date.now()}`;
 
     this.player = {
-      id: 'player',
+      id: selfId,
       name: playerUsername,
       isPlayer: true,
       platform: playerPlatform,
@@ -176,7 +190,7 @@ export class GameEngine {
     };
     this.brawlers.push(this.player);
 
-    // 2. Setup 9 Combatants (From Matchmaking Roster: Real Players + Filled Bots)
+    // 2. Setup 9 Combatants (Real Players marked with isRemotePlayer: true, otherwise Bots)
     const botNamesShuffled = [...BOT_NAMES].sort(() => Math.random() - 0.5);
     for (let i = 1; i < 10; i++) {
       const matchP = matchedPlayers && matchedPlayers[i] ? matchedPlayers[i] : null;
@@ -187,11 +201,13 @@ export class GameEngine {
       const botHp = Math.round(botDef.baseHp * bMult);
       const botPlatform = matchP ? matchP.platform : BOT_PLATFORMS[i % BOT_PLATFORMS.length];
       const botName = matchP ? matchP.name : botNamesShuffled[i % botNamesShuffled.length];
+      const isRemote = matchP ? !matchP.isBot : false;
 
       const bot: BrawlerEntity = {
         id: matchP ? matchP.id : `bot_${i}`,
         name: botName,
         isPlayer: false,
+        isRemotePlayer: isRemote,
         platform: botPlatform,
         brawlerId: bId,
         x: shuffledSpawns[i].x,
@@ -247,6 +263,15 @@ export class GameEngine {
   public start() {
     this.isRunning = true;
     this.lastTime = performance.now();
+    try {
+      this.broadcastChannel = new BroadcastChannel(`cs_mp_${this.roomId}`);
+      this.broadcastChannel.onmessage = (event) => {
+        const { type, payload } = event.data || {};
+        if (type === 'STATE_SYNC' && payload && payload.playerId !== this.player.id) {
+          this.handleRemoteState(payload);
+        }
+      };
+    } catch (_) {}
     this.loop = this.loop.bind(this);
     this.animationFrameId = requestAnimationFrame(this.loop);
   }
@@ -256,6 +281,16 @@ export class GameEngine {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
+    }
+  }
+
+  public destroy() {
+    this.stop();
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.close();
+      } catch (_) {}
+      this.broadcastChannel = null;
     }
   }
 
@@ -452,7 +487,7 @@ export class GameEngine {
 
   // --- BOT AI ---
   private updateBotAI(bot: BrawlerEntity, dt: number) {
-    if (bot.isLeaping || !bot.isAlive) return;
+    if (bot.isLeaping || !bot.isAlive || bot.isRemotePlayer) return;
 
     bot.aiDecisionTimer -= dt;
     const def = BRAWLERS[bot.brawlerId];
@@ -1953,6 +1988,7 @@ export class GameEngine {
     y: number
   ) {
     const isPlayer = brawler.isPlayer;
+    const isRemote = brawler.isRemotePlayer;
     const barW = isPlayer ? 78 : 62;
     const barH = isPlayer ? 10 : 8;
     const barX = x - barW / 2;
@@ -1967,8 +2003,17 @@ export class GameEngine {
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 3.5;
     ctx.strokeText(nameText, x, barY - 14);
-    ctx.fillStyle = isPlayer ? '#67e8f9' : '#ffffff';
+    ctx.fillStyle = isPlayer ? '#67e8f9' : isRemote ? '#f59e0b' : '#ffffff';
     ctx.fillText(nameText, x, barY - 14);
+
+    if (isRemote) {
+      ctx.font = "bold 9px 'Rowdies', 'Outfit', system-ui";
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2.5;
+      ctx.strokeText('👑 REALE', x, barY - 26);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText('👑 REALE', x, barY - 26);
+    }
 
     // Active power-up indicator tag over head
     if (brawler.speedBoostTimer > 0) {

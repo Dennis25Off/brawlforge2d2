@@ -49,6 +49,7 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
 
   const channelRef = useRef<BroadcastChannel | null>(null);
   const isMatchStartingRef = useRef(false);
+  const currentRoomIdRef = useRef<string>('room_' + Date.now());
 
   useEffect(() => {
     // 1. Setup local BroadcastChannel for zero-latency inter-tab discovery
@@ -98,6 +99,9 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
     })
       .then((res) => res.json())
       .then((data) => {
+        if (data?.roomId) {
+          currentRoomIdRef.current = data.roomId;
+        }
         if (data?.players && Array.isArray(data.players)) {
           setPlayers((curr) => {
             const merged = [...curr];
@@ -123,6 +127,9 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
       })
         .then((res) => res.json())
         .then((data) => {
+          if (data?.roomId) {
+            currentRoomIdRef.current = data.roomId;
+          }
           if (data?.players && Array.isArray(data.players)) {
             setPlayers((curr) => {
               const merged = [...curr];
@@ -207,7 +214,11 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
           sound.playCountdown(true);
         } else {
           clearInterval(countInterval);
-          onMatchReady(finalRoster);
+          const rosterWithRoom = finalRoster.map((p) => ({
+            ...p,
+            roomId: currentRoomIdRef.current,
+          }));
+          onMatchReady(rosterWithRoom);
         }
       }, 700);
     };

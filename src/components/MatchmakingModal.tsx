@@ -1,386 +1,226 @@
-import React, { useState, useEffect } from 'react';
-import { useGame } from '../context/GameContext';
-import { multiplayer } from '../services/multiplayer';
-import { Swords, Users, Bot, Key, X, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Shield, Sparkles, X, Globe, Smartphone, Monitor, Tablet } from 'lucide-react';
+import { BrawlerId, CrossPlayPlatform, PlayerProfile } from '../types/game';
+import { BRAWLERS } from '../data/brawlers';
+import { sound } from '../utils/audio';
 
 interface MatchmakingModalProps {
-  onStartMatch: (config: {
-    gameMode: '1v1' | 'ffa';
-    stageId: string;
-    players: Array<{ id: string; name: string; character: any; isBot: boolean }>;
-  }) => void;
-  onClose: () => void;
+  profile: PlayerProfile;
+  selectedBrawlerId: BrawlerId;
+  onMatchReady: () => void;
+  onCancel: () => void;
 }
 
-export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({ onStartMatch, onClose }) => {
-  const { playerName, customization } = useGame();
-  const [selectedMode, setSelectedMode] = useState<'1v1' | 'ffa'>('1v1');
-  const [selectedStage, setSelectedStage] = useState<'celestial_altar' | 'cyber_colosseum'>('celestial_altar');
-  const [isSearching, setIsSearching] = useState<boolean>(false);
-  const [searchSeconds, setSearchSeconds] = useState<number>(0);
-  const [roomCodeInput, setRoomCodeInput] = useState<string>('');
-  const [customRoom, setCustomRoom] = useState<{ code: string; isHost: boolean; players: any[] } | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string>('');
+interface MatchPlayer {
+  id: string;
+  name: string;
+  brawlerId: BrawlerId;
+  trophies: number;
+  platform: CrossPlayPlatform;
+  ready: boolean;
+}
 
-  const startLocalBotGame = (mode: '1v1' | 'ffa', stage: string) => {
-    setIsSearching(false);
-    const botHeroes = ['katana_ronin', 'cyber_ninja', 'valiant_knight', 'thunder_brawler'];
-    const opponentCount = mode === '1v1' ? 1 : 3;
-    const botPlayers = Array.from({ length: opponentCount }).map((_, i) => ({
-      id: `bot_local_${Date.now()}_${i + 1}`,
-      name: `${i === 0 ? 'Ren Jinrai' : i === 1 ? 'Kage Zero' : 'Vance'} [BOT]`,
-      character: { heroId: botHeroes[i % botHeroes.length], skinPalette: '#38bdf8' },
-      isBot: true,
-    }));
-    onStartMatch({
-      gameMode: mode,
-      stageId: stage,
-      players: [
-        { id: multiplayer.getPlayerId() || 'local_player', name: playerName, character: customization, isBot: false },
-        ...botPlayers,
-      ],
-    });
-  };
+const SAMPLE_NAMES = [
+  'ViperKing_IT',
+  'SuperBrawler_99',
+  'Phoenix_X',
+  'ToxicRaven',
+  'TitanLover',
+  'BlazeSniper',
+  'ApexPredator',
+  'GhostRider',
+  'ProPlayer_2026',
+];
 
-  // 30 seconds countdown effect
+const PLATFORMS: CrossPlayPlatform[] = ['mobile', 'pc', 'tablet'];
+const BRAWLER_KEYS: BrawlerId[] = ['blaze', 'viper', 'titan', 'raven', 'harmony'];
+
+export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
+  profile,
+  selectedBrawlerId,
+  onMatchReady,
+  onCancel,
+}) => {
+  const [seconds, setSeconds] = useState(0);
+  const [players, setPlayers] = useState<MatchPlayer[]>([
+    {
+      id: profile.id,
+      name: profile.username,
+      brawlerId: selectedBrawlerId,
+      trophies: profile.trophies,
+      platform: profile.platform,
+      ready: true,
+    },
+  ]);
+  const [countdown, setCountdown] = useState<number | null>(null);
+
   useEffect(() => {
-    let interval: any = null;
-    if (isSearching) {
-      interval = setInterval(() => {
-        setSearchSeconds((prev) => {
-          const next = prev + 1;
-          if (next >= 30) {
-            setStatusMessage('Inizializzazione Bot da combattimento...');
-            if (multiplayer.isConnected()) {
-              multiplayer.startInstantBotMatch(selectedMode, { name: playerName, character: customization }, selectedStage);
-            } else {
-              startLocalBotGame(selectedMode, selectedStage);
-            }
-          }
-          return next;
-        });
-      }, 1000);
-    } else {
-      setSearchSeconds(0);
-    }
-    return () => clearInterval(interval);
-  }, [isSearching, selectedMode, playerName, customization, selectedStage]);
+    // Timer
+    const timer = setInterval(() => {
+      setSeconds((s) => s + 1);
+    }, 1000);
 
-  // Listen to multiplayer socket events
-  useEffect(() => {
-    const unsub = multiplayer.addListener((data) => {
-      if (data.type === 'MATCH_FOUND') {
-        setStatusMessage('Avversario trovato! Preparazione arena...');
-      } else if (data.type === 'BOT_MATCH_FILLED') {
-        setStatusMessage(data.message || 'Lobby completata con Bot!');
-      } else if (data.type === 'MATCH_START') {
-        setIsSearching(false);
-        onStartMatch({
-          gameMode: data.mode || selectedMode,
-          stageId: data.stageId || selectedStage,
-          players: data.players || [],
-        });
-      } else if (data.type === 'ROOM_CREATED') {
-        setCustomRoom({
-          code: data.roomId,
-          isHost: data.isHost,
-          players: data.players,
-        });
-        setStatusMessage(`Stanza creata: codice ${data.roomId}`);
-      } else if (data.type === 'ROOM_UPDATE') {
-        setCustomRoom((prev) => (prev ? { ...prev, players: data.players } : null));
-      } else if (data.type === 'ROOM_ERROR') {
-        setStatusMessage(data.message);
-      }
-    });
+    // Fast matchmaking simulation: adds 1-2 players every 300-600ms
+    const queueInterval = setInterval(() => {
+      setPlayers((current) => {
+        if (current.length >= 10) return current;
 
-    return () => unsub();
-  }, [onStartMatch, selectedMode, selectedStage]);
+        const nextIdx = current.length - 1;
+        const newPlayer: MatchPlayer = {
+          id: `match_bot_${current.length}`,
+          name: SAMPLE_NAMES[nextIdx % SAMPLE_NAMES.length] || `Gamer_${Math.floor(Math.random() * 900 + 100)}`,
+          brawlerId: BRAWLER_KEYS[Math.floor(Math.random() * BRAWLER_KEYS.length)],
+          trophies: Math.max(0, profile.trophies + Math.floor((Math.random() - 0.4) * 80)),
+          platform: PLATFORMS[Math.floor(Math.random() * PLATFORMS.length)],
+          ready: true,
+        };
 
-  const handleStartSearch = () => {
-    setIsSearching(true);
-    setStatusMessage('Cercando guerrieri nel reame...');
-    if (multiplayer.isConnected()) {
-      multiplayer.joinQueue(selectedMode, { name: playerName, character: customization });
-    } else {
-      // Offline fallback: start bot match after 1.5s simulated queue
-      setTimeout(() => {
-        startLocalBotGame(selectedMode, selectedStage);
-      }, 1200);
-    }
-  };
+        sound.playPlayerJoined();
+        const updated = [...current, newPlayer];
 
-  const handleCancelSearch = () => {
-    setIsSearching(false);
-    setStatusMessage('');
-    multiplayer.cancelQueue();
-  };
+        // If filled 10/10, start battle countdown
+        if (updated.length === 10) {
+          clearInterval(queueInterval);
+          startCountdown();
+        }
 
-  const handleInstantBot = () => {
-    setIsSearching(true);
-    setStatusMessage('Caricamento partita rapida con Bot...');
-    if (multiplayer.isConnected()) {
-      multiplayer.startInstantBotMatch(selectedMode, { name: playerName, character: customization }, selectedStage);
-      setTimeout(() => {
-        startLocalBotGame(selectedMode, selectedStage);
-      }, 1200);
-    } else {
-      startLocalBotGame(selectedMode, selectedStage);
-    }
-  };
+        return updated;
+      });
+    }, 450);
 
-  const handleCreateRoom = () => {
-    const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-    multiplayer.createCustomRoom(code, selectedMode, { name: playerName, character: customization });
-  };
+    const startCountdown = () => {
+      let count = 3;
+      setCountdown(count);
+      sound.playCountdown(false);
 
-  const handleJoinRoom = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!roomCodeInput.trim()) return;
-    multiplayer.joinCustomRoom(roomCodeInput.trim().toUpperCase(), { name: playerName, character: customization });
-  };
+      const countInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+          setCountdown(count);
+          sound.playCountdown(false);
+        } else if (count === 0) {
+          setCountdown(0);
+          sound.playCountdown(true);
+        } else {
+          clearInterval(countInterval);
+          onMatchReady();
+        }
+      }, 700);
+    };
 
-  const handleForceStart = () => {
-    multiplayer.forceStartRoom();
+    return () => {
+      clearInterval(timer);
+      clearInterval(queueInterval);
+    };
+  }, [profile, selectedBrawlerId, onMatchReady]);
+
+  const renderPlatformIcon = (platform: CrossPlayPlatform) => {
+    if (platform === 'pc') return <span title="PC"><Monitor className="w-3.5 h-3.5 text-sky-400" /></span>;
+    if (platform === 'tablet') return <span title="Tablet"><Tablet className="w-3.5 h-3.5 text-purple-400" /></span>;
+    return <span title="Mobile"><Smartphone className="w-3.5 h-3.5 text-emerald-400" /></span>;
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-lg animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 md:p-6 border-b border-zinc-800/80 bg-zinc-900/40">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
-              <Swords className="w-5 h-5 text-zinc-950" />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-white tracking-wide">MATCHMAKING &amp; ARENA</h2>
-              <p className="text-xs text-zinc-400">Trova avversari reali o affronta bot da combattimento</p>
-            </div>
-          </div>
-
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+      <div className="relative w-full max-w-2xl rounded-3xl bg-slate-900 border-4 border-indigo-500 shadow-2xl p-6 flex flex-col items-center">
+        {/* Close / Cancel Button */}
+        {countdown === null && (
           <button
-            onClick={() => {
-              if (isSearching) handleCancelSearch();
-              onClose();
-            }}
-            className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+            onClick={onCancel}
+            className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition"
           >
             <X className="w-5 h-5" />
           </button>
+        )}
+
+        {/* Header */}
+        <div className="flex flex-col items-center mb-6 text-center">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950 border border-indigo-500 text-indigo-300 text-xs font-bold mb-2">
+            <Globe className="w-4 h-4 text-sky-400 animate-spin" />
+            <span>CROSS-PLAY ATTIVO • SERVER GLOBALE</span>
+          </div>
+
+          <h2 className="font-extrabold text-2xl sm:text-3xl text-white font-game tracking-wide">
+            {countdown !== null ? (
+              <span className="text-amber-400 animate-bounce">LA BATTAGLIA INIZIA!</span>
+            ) : (
+              'CERCA AVVERSARI...'
+            )}
+          </h2>
+
+          <p className="text-xs text-slate-400 mt-1">
+            Modalità: <strong className="text-white">Sopravvivenza Solo (Battle Royale 10 Giocatori)</strong>
+          </p>
+
+          <div className="mt-2 text-sm font-black text-amber-300 bg-black/50 px-3 py-0.5 rounded-lg border border-slate-700">
+            Tempo trascorso: {Math.floor(seconds / 60)}:{seconds % 60 < 10 ? '0' : ''}{seconds % 60}
+          </div>
         </div>
 
-        {/* Searching Status Overlay */}
-        {isSearching ? (
-          <div className="p-8 flex flex-col items-center justify-center text-center space-y-5">
-            <div className="relative">
-              <div className="w-20 h-20 rounded-full border-4 border-cyan-500/20 border-t-cyan-400 animate-spin flex items-center justify-center" />
-              <div className="absolute inset-0 flex items-center justify-center font-mono font-black text-base text-cyan-400">
-                {30 - searchSeconds > 0 ? 30 - searchSeconds : 0}s
-              </div>
-            </div>
+        {/* 10 Player Slots Grid */}
+        <div className="w-full grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+          {Array.from({ length: 10 }).map((_, i) => {
+            const p = players[i];
+            const brawlerDef = p ? BRAWLERS[p.brawlerId] : null;
 
-            <div>
-              <h3 className="text-lg font-bold text-white">Ricerca Avversari in Corso...</h3>
-              <p className="text-xs text-zinc-400 mt-1 max-w-sm">
-                Se nessun giocatore reale si connette entro <strong className="text-cyan-300">30 secondi</strong>, la lobby
-                verrà popolata automaticamente con Bot intelligenti!
-              </p>
-            </div>
-
-            {statusMessage && (
-              <div className="px-4 py-2 rounded-xl bg-cyan-950/60 border border-cyan-800/50 text-xs font-semibold text-cyan-300 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse" />
-                <span>{statusMessage}</span>
-              </div>
-            )}
-
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                onClick={handleInstantBot}
-                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-zinc-200 flex items-center gap-2 transition-all active:scale-95"
+            return (
+              <div
+                key={i}
+                className={`relative rounded-2xl p-2.5 flex flex-col items-center justify-center border-2 transition-all ${
+                  p
+                    ? 'bg-slate-800/90 border-indigo-400 shadow-lg scale-100'
+                    : 'bg-slate-950/60 border-slate-800 border-dashed opacity-50 scale-95'
+                }`}
               >
-                <Bot className="w-4 h-4 text-amber-400" />
-                <span>Avvia Subito con Bot</span>
-              </button>
-              <button
-                onClick={handleCancelSearch}
-                className="px-4 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 border border-rose-800 text-xs font-bold text-rose-300 transition-all active:scale-95"
-              >
-                Annulla Coda
-              </button>
-            </div>
-          </div>
-        ) : customRoom ? (
-          /* Custom Private Lobby View */
-          <div className="p-6 space-y-6">
-            <div className="p-4 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between">
-              <div>
-                <span className="text-xs text-zinc-400 font-semibold uppercase block">Codice Stanza</span>
-                <span className="font-mono text-2xl font-black text-cyan-400 tracking-wider">
-                  {customRoom.code}
-                </span>
-              </div>
-              <span className="text-xs text-zinc-400">Condividi questo codice con un amico</span>
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-zinc-300 uppercase">
-                Giocatori Connessi ({customRoom.players.length}/{selectedMode === '1v1' ? 2 : 4})
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                {customRoom.players.map((p, i) => (
-                  <div
-                    key={p.id || i}
-                    className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800 flex items-center gap-2.5"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold text-xs">
-                      {i + 1}
+                {p ? (
+                  <>
+                    {/* Brawler Avatar circle */}
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-inner border-2 border-white mb-1.5"
+                      style={{ backgroundColor: brawlerDef?.color || '#3b82f6' }}
+                    >
+                      {brawlerDef?.avatarEmoji}
                     </div>
-                    <span className="text-sm font-bold text-zinc-200">{p.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
 
-            <div className="flex items-center gap-3 pt-4 border-t border-zinc-800">
-              <button
-                onClick={handleForceStart}
-                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-zinc-950 font-black text-sm uppercase tracking-wider shadow-[0_0_20px_rgba(6,182,212,0.4)] active:scale-95"
-              >
-                Avvia Partita (Aggiungi Bot Mancanti)
-              </button>
-              <button
-                onClick={() => setCustomRoom(null)}
-                className="px-4 py-3 rounded-xl bg-zinc-800 text-zinc-300 font-bold text-xs"
-              >
-                Esci
-              </button>
+                    <div className="font-black text-xs text-white truncate max-w-[90px]">
+                      {p.name}
+                    </div>
+
+                    <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-400">
+                      {renderPlatformIcon(p.platform)}
+                      <span>{p.trophies} 🏆</span>
+                    </div>
+
+                    <span className="mt-1 px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[9px]">
+                      PRONTO
+                    </span>
+                  </>
+                ) : (
+                  <div className="h-24 flex flex-col items-center justify-center text-slate-600">
+                    <span className="text-xl animate-pulse">?</span>
+                    <span className="text-[10px] font-bold mt-1">In attesa...</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Countdown Indicator or Cancel Button */}
+        {countdown !== null ? (
+          <div className="flex flex-col items-center">
+            <div className="text-5xl font-black text-amber-400 font-game animate-ping">
+              {countdown === 0 ? 'SCONTRO!' : countdown}
             </div>
+            <p className="text-xs text-slate-300 mt-2">Caricamento mappa e posizioni di spawn...</p>
           </div>
         ) : (
-          /* Standard Mode Selection View */
-          <div className="p-4 md:p-6 space-y-6">
-            {/* Mode Selector */}
-            <div>
-              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">
-                1. Scegli Modalità di Combattimento
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  onClick={() => setSelectedMode('1v1')}
-                  className={`p-4 rounded-xl border text-left flex items-start gap-3 transition-all ${
-                    selectedMode === '1v1'
-                      ? 'border-cyan-500 bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500'
-                      : 'border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900'
-                  }`}
-                >
-                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
-                    <Swords className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">Duello 1v1 Classificato</h4>
-                    <p className="text-xs text-zinc-400 mt-0.5">3 vite a testa. Scontro competitivo puro per scalare la classifica ELO.</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setSelectedMode('ffa')}
-                  className={`p-4 rounded-xl border text-left flex items-start gap-3 transition-all ${
-                    selectedMode === 'ffa'
-                      ? 'border-purple-500 bg-purple-950/20 shadow-[0_0_15px_rgba(168,85,247,0.15)] ring-1 ring-purple-500'
-                      : 'border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900'
-                  }`}
-                >
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">Tutti Contro Tutti (4P FFA)</h4>
-                    <p className="text-xs text-zinc-400 mt-0.5">Caos totale a 4 combattenti. Sopravvivi e conquista il trono dell'arena.</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Stage Selector */}
-            <div>
-              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">
-                2. Seleziona Arena
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  onClick={() => setSelectedStage('celestial_altar')}
-                  className={`p-3.5 rounded-xl border text-left transition-all ${
-                    selectedStage === 'celestial_altar'
-                      ? 'border-amber-500 bg-amber-950/20 ring-1 ring-amber-500'
-                      : 'border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900'
-                  }`}
-                >
-                  <div className="text-sm font-bold text-white">Altare Celeste</div>
-                  <div className="text-xs text-zinc-400">Rovine stellari con piattaforme morbide sospese</div>
-                </button>
-
-                <button
-                  onClick={() => setSelectedStage('cyber_colosseum')}
-                  className={`p-3.5 rounded-xl border text-left transition-all ${
-                    selectedStage === 'cyber_colosseum'
-                      ? 'border-cyan-500 bg-cyan-950/20 ring-1 ring-cyan-500'
-                      : 'border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900'
-                  }`}
-                >
-                  <div className="text-sm font-bold text-white">Cyber Colosseo</div>
-                  <div className="text-xs text-zinc-400">Arena futuristica con rampe laser ad alto impatto</div>
-                </button>
-              </div>
-            </div>
-
-            {/* Matchmaking Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <button
-                onClick={handleStartSearch}
-                className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-zinc-950 font-black text-sm uppercase tracking-wider shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2"
-              >
-                <Swords className="w-4 h-4" />
-                <span>CERCA PARTITA RAPIDA</span>
-              </button>
-
-              <button
-                onClick={handleInstantBot}
-                className="py-3.5 px-5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs uppercase tracking-wider active:scale-95 transition-all flex items-center justify-center gap-2"
-              >
-                <Bot className="w-4 h-4 text-amber-400" />
-                <span>Allenamento Bot</span>
-              </button>
-            </div>
-
-            {/* Custom Room Code Section */}
-            <div className="pt-4 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <button
-                onClick={handleCreateRoom}
-                className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold underline underline-offset-4"
-              >
-                + Crea Stanza Privata con Codice
-              </button>
-
-              <form onSubmit={handleJoinRoom} className="flex items-center gap-2 w-full sm:w-auto">
-                <input
-                  type="text"
-                  placeholder="Codice Stanza (es. X7F9)"
-                  maxLength={6}
-                  value={roomCodeInput}
-                  onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
-                  className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-mono font-bold text-white uppercase focus:outline-none focus:border-cyan-500 w-40"
-                />
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-zinc-200"
-                >
-                  Entra
-                </button>
-              </form>
-            </div>
-          </div>
+          <button
+            onClick={onCancel}
+            className="px-8 py-2.5 rounded-2xl bg-red-600/80 hover:bg-red-600 text-white font-bold text-sm border-2 border-red-400 shadow-lg active:scale-95 transition"
+          >
+            Annulla Matchmaking
+          </button>
         )}
       </div>
     </div>

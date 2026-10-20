@@ -90,6 +90,7 @@ export class GameEngine {
   private pendingProjectilesToSend: any[] = [];
   private pendingDamageToSend: any[] = [];
   private pendingKillsToSend: any[] = [];
+  private isSyncingWithServer = false;
 
   // Natural health regeneration timer for player
   private playerCombatTimer = 0;
@@ -316,6 +317,7 @@ export class GameEngine {
     this.updateParticles(dt);
     this.updateDamageNumbers(dt);
     this.updateCamera(dt);
+    this.updateMultiplayerSync(dt);
 
     // Sync HUD callback
     this.callbacks.onPlayerHpChange(
@@ -716,7 +718,7 @@ export class GameEngine {
           if (!attacker.isAlive) return;
           const bulletSpread = (Math.random() - 0.5) * def.attackSpread;
           const a = angle + bulletSpread;
-          this.projectiles.push({
+          this.addProjectile({
             id: `proj_${Date.now()}_${Math.random()}`,
             ownerId: attacker.id,
             isSuper: false,
@@ -740,7 +742,7 @@ export class GameEngine {
       for (let i = 0; i < def.bulletCount; i++) {
         const spreadOffset = ((i - (def.bulletCount - 1) / 2) / (def.bulletCount - 1)) * def.attackSpread;
         const a = angle + spreadOffset;
-        this.projectiles.push({
+        this.addProjectile({
           id: `proj_${Date.now()}_${Math.random()}`,
           ownerId: attacker.id,
           isSuper: false,
@@ -764,7 +766,7 @@ export class GameEngine {
         setTimeout(() => {
           if (!attacker.isAlive) return;
           const a = angle + (Math.random() - 0.5) * def.attackSpread;
-          this.projectiles.push({
+          this.addProjectile({
             id: `proj_${Date.now()}_${Math.random()}`,
             ownerId: attacker.id,
             isSuper: false,
@@ -788,7 +790,7 @@ export class GameEngine {
       for (let i = 0; i < def.bulletCount; i++) {
         const spreadOffset = ((i - 1) * def.attackSpread) / 2;
         const a = angle + spreadOffset;
-        this.projectiles.push({
+        this.addProjectile({
           id: `proj_${Date.now()}_${Math.random()}`,
           ownerId: attacker.id,
           isSuper: false,
@@ -809,7 +811,7 @@ export class GameEngine {
         });
       }
     } else if (attacker.brawlerId === 'harmony') {
-      this.projectiles.push({
+      this.addProjectile({
         id: `proj_${Date.now()}_${Math.random()}`,
         ownerId: attacker.id,
         isSuper: false,
@@ -847,7 +849,7 @@ export class GameEngine {
         setTimeout(() => {
           if (!attacker.isAlive) return;
           const a = angle + (Math.random() - 0.5) * 0.1;
-          this.projectiles.push({
+          this.addProjectile({
             id: `proj_super_${Date.now()}_${Math.random()}`,
             ownerId: attacker.id,
             isSuper: true,
@@ -872,7 +874,7 @@ export class GameEngine {
       for (let i = 0; i < 9; i++) {
         const spread = ((i - 4) / 4) * 0.5;
         const a = angle + spread;
-        this.projectiles.push({
+        this.addProjectile({
           id: `proj_super_${Date.now()}_${Math.random()}`,
           ownerId: attacker.id,
           isSuper: true,
@@ -916,7 +918,7 @@ export class GameEngine {
       this.spawnParticles(attacker.x, attacker.y, '#10b981', 35);
       sound.playVictory();
 
-      this.projectiles.push({
+      this.addProjectile({
         id: `proj_super_${Date.now()}`,
         ownerId: attacker.id,
         isSuper: true,
@@ -941,7 +943,7 @@ export class GameEngine {
     const numDaggers = 12;
     for (let i = 0; i < numDaggers; i++) {
       const a = (i * 2 * Math.PI) / numDaggers;
-      this.projectiles.push({
+      this.addProjectile({
         id: `proj_raven_${Date.now()}_${i}`,
         ownerId: brawler.id,
         isSuper: true,
@@ -1247,6 +1249,14 @@ export class GameEngine {
     target.hitFlashTimer = 0.12; // White cartoon hit flash!
     this.spawnDamageNumber(target.x, target.y - 25, `${finalDamage}`, color);
 
+    if (attackerId === this.player.id && !target.isPlayer) {
+      this.pendingDamageToSend.push({
+        id: `dmg_${Date.now()}_${Math.random()}`,
+        targetId: target.id,
+        damage: finalDamage,
+      });
+    }
+
     if (target.isPlayer) {
       this.playerCombatTimer = 0;
       this.camera.shake = Math.min(12, this.camera.shake + 5);
@@ -1275,6 +1285,17 @@ export class GameEngine {
         time: Date.now(),
       };
       this.callbacks.onKillFeed(killEntry);
+
+      if (attackerId === this.player.id) {
+        this.pendingKillsToSend.push({
+          id: killEntry.id,
+          killerId: this.player.id,
+          killerName: this.player.name,
+          victimId: target.id,
+          victimName: target.name,
+          timestamp: Date.now(),
+        });
+      }
 
       const aliveCount = this.brawlers.filter((b) => b.isAlive).length;
       this.callbacks.onAliveChange(aliveCount);
@@ -2221,5 +2242,184 @@ export class GameEngine {
     ctx.arc(cx, cy, r, 0, Math.PI * 2, true);
     ctx.fill();
     ctx.restore();
+  }
+
+  // --- MULTIPLAYER SYNCHRONIZATION METHODS ---
+  private addProjectile(proj: Projectile) {
+    this.projectiles.push(proj);
+    if (proj.ownerId === this.player.id) {
+      this.pendingProjectilesToSend.push({
+        id: proj.id,
+        ownerId: proj.ownerId,
+        x: Math.round(proj.x),
+        y: Math.round(proj.y),
+        vx: proj.vx,
+        vy: proj.vy,
+        bulletType: proj.bulletType,
+        color: proj.color,
+        radius: proj.radius,
+        damage: proj.damage,
+        isSuper: proj.isSuper,
+      });
+    }
+  }
+
+  public handleRemoteState(payload: any) {
+    if (!payload || payload.playerId === this.player.id) return;
+
+    let target = this.brawlers.find((b) => b.id === payload.playerId);
+    if (!target) {
+      target = this.brawlers.find((b) => !b.isPlayer && !b.isRemotePlayer);
+      if (target) {
+        target.id = payload.playerId;
+        target.name = payload.name || target.name;
+        target.brawlerId = payload.brawlerId || target.brawlerId;
+        target.platform = payload.platform || target.platform;
+      }
+    }
+
+    if (target) {
+      target.isRemotePlayer = true;
+      target.x += (payload.x - target.x) * 0.45;
+      target.y += (payload.y - target.y) * 0.45;
+      if (typeof payload.rotation === 'number') target.rotation = payload.rotation;
+      if (typeof payload.hp === 'number') target.hp = payload.hp;
+      if (typeof payload.maxHp === 'number') target.maxHp = payload.maxHp;
+      if (typeof payload.ammo === 'number') target.ammo = payload.ammo;
+      if (typeof payload.powerCubes === 'number') target.powerCubes = payload.powerCubes;
+      if (typeof payload.isAlive === 'boolean') target.isAlive = payload.isAlive;
+      if (typeof payload.isMoving === 'boolean') target.isMoving = payload.isMoving;
+
+      if (Array.isArray(payload.newProjectiles)) {
+        for (const p of payload.newProjectiles) {
+          if (!this.projectiles.some((existing) => existing.id === p.id)) {
+            this.projectiles.push({
+              id: p.id,
+              ownerId: target.id,
+              isSuper: p.isSuper || false,
+              brawlerId: target.brawlerId,
+              x: p.x,
+              y: p.y,
+              vx: p.vx,
+              vy: p.vy,
+              distanceTraveled: 0,
+              maxDistance: 800,
+              damage: p.damage || 800,
+              radius: p.radius || 10,
+              piercing: p.piercing || false,
+              destroysWalls: p.destroysWalls || false,
+              color: p.color || '#f97316',
+              bulletType: p.bulletType || 'bullet',
+            });
+          }
+        }
+      }
+    }
+  }
+
+  private updateMultiplayerSync(dt: number) {
+    this.multiplayerSyncTimer += dt;
+    if (this.multiplayerSyncTimer < 0.08) return;
+    this.multiplayerSyncTimer = 0;
+
+    const localPayload = {
+      roomId: this.roomId,
+      playerId: this.player.id,
+      name: this.player.name,
+      brawlerId: this.player.brawlerId,
+      platform: this.player.platform,
+      x: Math.round(this.player.x),
+      y: Math.round(this.player.y),
+      rotation: Number(this.player.rotation.toFixed(3)),
+      hp: Math.round(this.player.hp),
+      maxHp: this.player.maxHp,
+      ammo: this.player.ammo,
+      powerCubes: this.player.powerCubes,
+      isAlive: this.player.isAlive,
+      isMoving: this.player.isMoving,
+      newProjectiles: this.pendingProjectilesToSend.splice(0),
+      damageEvents: this.pendingDamageToSend.splice(0),
+      killEvents: this.pendingKillsToSend.splice(0),
+    };
+
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({
+          type: 'STATE_SYNC',
+          payload: localPayload,
+        });
+      } catch (_) {}
+    }
+
+    if (!this.isSyncingWithServer) {
+      this.isSyncingWithServer = true;
+      fetch('/api/match/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(localPayload),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          this.isSyncingWithServer = false;
+          if (!data || !data.success) return;
+
+          if (Array.isArray(data.otherPlayers)) {
+            for (const remote of data.otherPlayers) {
+              this.handleRemoteState({
+                playerId: remote.id,
+                name: remote.name,
+                brawlerId: remote.brawlerId,
+                platform: remote.platform,
+                x: remote.x,
+                y: remote.y,
+                rotation: remote.rotation,
+                hp: remote.hp,
+                maxHp: remote.maxHp,
+                ammo: remote.ammo,
+                powerCubes: remote.powerCubes,
+                isAlive: remote.isAlive,
+                isMoving: remote.isMoving,
+              });
+            }
+          }
+
+          if (Array.isArray(data.remoteProjectiles)) {
+            for (const p of data.remoteProjectiles) {
+              if (p.ownerId !== this.player.id && !this.projectiles.some((pr) => pr.id === p.id)) {
+                this.projectiles.push({
+                  id: p.id,
+                  ownerId: p.ownerId,
+                  isSuper: p.isSuper || false,
+                  brawlerId: 'blaze',
+                  x: p.x,
+                  y: p.y,
+                  vx: p.vx,
+                  vy: p.vy,
+                  distanceTraveled: 0,
+                  maxDistance: 800,
+                  damage: p.damage || 800,
+                  radius: p.radius || 10,
+                  piercing: false,
+                  destroysWalls: false,
+                  color: p.color || '#f97316',
+                  bulletType: p.bulletType || 'bullet',
+                });
+              }
+            }
+          }
+
+          if (Array.isArray(data.relevantDamage)) {
+            for (const dmg of data.relevantDamage) {
+              if (dmg.timestamp > this.lastProcessedDamageTime) {
+                this.lastProcessedDamageTime = dmg.timestamp;
+                this.applyDamage(this.player, dmg.damage, dmg.attackerId, false, '#ef4444');
+              }
+            }
+          }
+        })
+        .catch(() => {
+          this.isSyncingWithServer = false;
+        });
+    }
   }
 }

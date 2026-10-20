@@ -12,11 +12,13 @@ import {
   Pencil,
   Flame,
   ArrowRight,
+  Gamepad2,
 } from 'lucide-react';
-import { BrawlerId, PlayerProfile } from '../types/game';
+import { BrawlerId, ControlsConfig, PlayerProfile } from '../types/game';
 import { BRAWLERS } from '../data/brawlers';
 import { PWAInstallButton } from './PWAInstallButton';
 import { ChangeNameModal } from './ChangeNameModal';
+import { ControlsMappingModal } from './ControlsMappingModal';
 import { sound } from '../utils/audio';
 
 interface LobbyProps {
@@ -38,6 +40,7 @@ export const Lobby: React.FC<LobbyProps> = ({
 }) => {
   const [isMuted, setIsMuted] = useState(sound.getMuted());
   const [showNameModal, setShowNameModal] = useState(false);
+  const [showControlsModal, setShowControlsModal] = useState(false);
 
   const selectedBrawler = BRAWLERS[profile.selectedBrawler];
   const brawlerProg = profile.brawlers[profile.selectedBrawler] || { level: 1, powerPoints: 0 };
@@ -148,6 +151,19 @@ export const Lobby: React.FC<LobbyProps> = ({
             <span className="font-extrabold text-[10px] sm:text-xs text-emerald-300">{profile.gems}</span>
           </div>
 
+          {/* Controls & Key Mapping Modal button */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              setShowControlsModal(true);
+            }}
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-amber-400/80 text-amber-300 font-bold text-[10px] sm:text-xs shadow-sm transition active:scale-95"
+            title="Mappatura Comandi (WASD & Touch)"
+          >
+            <Gamepad2 className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden md:inline">Comandi</span>
+          </button>
+
           {/* Audio toggle */}
           <button
             onClick={toggleSound}
@@ -227,9 +243,22 @@ export const Lobby: React.FC<LobbyProps> = ({
             <span className="text-emerald-400 hidden sm:inline">• BATTLE ROYALE</span>
           </div>
 
-          <div className="text-[9px] sm:text-[10px] text-slate-400 flex items-center gap-1">
-            <Globe className="w-2.5 h-2.5 text-sky-400" />
-            <span>Cross-play Attivo</span>
+          <div className="text-[9px] sm:text-[10px] text-slate-400 flex items-center gap-2">
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowControlsModal(true);
+              }}
+              className="flex items-center gap-1 text-amber-300 hover:text-amber-200 font-bold hover:underline"
+            >
+              <Gamepad2 className="w-3 h-3 text-amber-400" />
+              <span>Mappatura Tasti</span>
+            </button>
+            <span className="text-slate-600 hidden sm:inline">•</span>
+            <div className="flex items-center gap-1">
+              <Globe className="w-2.5 h-2.5 text-sky-400" />
+              <span>Cross-play Attivo</span>
+            </div>
           </div>
         </div>
 
@@ -284,6 +313,17 @@ export const Lobby: React.FC<LobbyProps> = ({
           currentName={profile.username}
           onSave={handleSaveName}
           onClose={() => setShowNameModal(false)}
+        />
+      )}
+
+      {/* Controls & Keys Mapping Modal */}
+      {showControlsModal && (
+        <ControlsMappingModal
+          currentConfig={profile.controlsConfig}
+          onSave={(cfg) => {
+            onUpdateProfile((p) => ({ ...p, controlsConfig: cfg }));
+          }}
+          onClose={() => setShowControlsModal(false)}
         />
       )}
     </div>

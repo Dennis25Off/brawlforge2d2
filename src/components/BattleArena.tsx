@@ -178,6 +178,10 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
           killFeed={killFeed}
           poisonPhase={poisonPhase}
           poisonTimer={poisonTimer}
+          controlsConfig={profile.controlsConfig}
+          onUpdateControlsConfig={(cfg) => {
+            onUpdateProfile((p) => ({ ...p, controlsConfig: cfg }));
+          }}
           onExitMatch={() => {
             sound.playClick();
             onExitToMenu();

@@ -82,7 +82,47 @@ export interface PlayerProfile {
     boxesOpened: number;
   };
   claimedTrophyRoad: number[];
+  controlsConfig?: ControlsConfig;
 }
+
+export type MobileMoveMode = 'joystick' | 'dpad';
+export type PCLayoutMode = 'wasd_mouse' | 'arrows' | 'wasd_keyboard';
+
+export interface ControlsConfig {
+  showVisibleKeys: boolean;
+  mobileMoveMode: MobileMoveMode;
+  pcLayout: PCLayoutMode;
+  autoAimOnTap: boolean;
+  dpadSize: 'normal' | 'large';
+  attackBtnSize: 'normal' | 'large';
+  customKeys: {
+    moveUp: string;
+    moveDown: string;
+    moveLeft: string;
+    moveRight: string;
+    attack: string;
+    super: string;
+    gadget: string;
+  };
+}
+
+export const DEFAULT_CONTROLS_CONFIG: ControlsConfig = {
+  showVisibleKeys: true,
+  mobileMoveMode: 'joystick',
+  pcLayout: 'wasd_mouse',
+  autoAimOnTap: true,
+  dpadSize: 'normal',
+  attackBtnSize: 'normal',
+  customKeys: {
+    moveUp: 'w',
+    moveDown: 's',
+    moveLeft: 'a',
+    moveRight: 'd',
+    attack: 'f',
+    super: ' ',
+    gadget: 'e',
+  },
+};
 
 export interface Projectile {
   id: string;

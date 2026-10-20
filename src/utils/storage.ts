@@ -1,4 +1,4 @@
-import { BrawlerId, PlayerProfile } from '../types/game';
+import { BrawlerId, ControlsConfig, DEFAULT_CONTROLS_CONFIG, PlayerProfile } from '../types/game';
 
 const STORAGE_KEY = 'clash_stars_profile_v1';
 
@@ -25,6 +25,7 @@ export const INITIAL_PROFILE: PlayerProfile = {
     boxesOpened: 1,
   },
   claimedTrophyRoad: [0, 50],
+  controlsConfig: { ...DEFAULT_CONTROLS_CONFIG },
 };
 
 export function loadPlayerProfile(): PlayerProfile {
@@ -38,11 +39,20 @@ export function loadPlayerProfile(): PlayerProfile {
     const parsed = JSON.parse(raw);
     // Ensure all 5 brawlers exist in profile
     const mergedBrawlers = { ...INITIAL_PROFILE.brawlers, ...(parsed.brawlers || {}) };
+    const mergedControls: ControlsConfig = {
+      ...DEFAULT_CONTROLS_CONFIG,
+      ...(parsed.controlsConfig || {}),
+      customKeys: {
+        ...DEFAULT_CONTROLS_CONFIG.customKeys,
+        ...(parsed.controlsConfig?.customKeys || {}),
+      },
+    };
     return {
       ...INITIAL_PROFILE,
       ...parsed,
       brawlers: mergedBrawlers,
       stats: { ...INITIAL_PROFILE.stats, ...(parsed.stats || {}) },
+      controlsConfig: mergedControls,
     };
   } catch (e) {
     console.error('Failed to load profile:', e);

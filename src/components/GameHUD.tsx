@@ -1,8 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Shield, Zap, Flame } from 'lucide-react';
+import {
+  Shield,
+  Zap,
+  Flame,
+  Crosshair,
+  Gamepad2,
+  Keyboard,
+  Smartphone,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import { GameEngine } from '../game/GameEngine';
 import { BRAWLERS } from '../data/brawlers';
-import { KillFeedEntry } from '../types/game';
+import { ControlsConfig, DEFAULT_CONTROLS_CONFIG, KillFeedEntry } from '../types/game';
+import { ControlsMappingModal } from './ControlsMappingModal';
+import { sound } from '../utils/audio';
 
 interface GameHUDProps {
   engine: GameEngine;
@@ -15,6 +27,8 @@ interface GameHUDProps {
   killFeed: KillFeedEntry[];
   poisonPhase: number;
   poisonTimer: number;
+  controlsConfig?: ControlsConfig;
+  onUpdateControlsConfig?: (config: ControlsConfig) => void;
   onExitMatch: () => void;
 }
 
@@ -25,16 +39,77 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   powerCubes,
   killFeed,
   poisonTimer,
+  controlsConfig: externalConfig,
+  onUpdateControlsConfig,
   onExitMatch,
 }) => {
   const leftTouchRef = useRef<HTMLDivElement>(null);
   const rightTouchRef = useRef<HTMLDivElement>(null);
   const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Multitouch touch identifiers tracking
+  // Local controls configuration with fallback
+  const [controls, setControls] = useState<ControlsConfig>(() => ({
+    ...DEFAULT_CONTROLS_CONFIG,
+    ...(externalConfig || {}),
+  }));
+
+  // Sync external changes
+  useEffect(() => {
+    if (externalConfig) {
+      setControls((prev) => ({ ...prev, ...externalConfig }));
+    }
+  }, [externalConfig]);
+
+  const updateControls = (newCfg: ControlsConfig) => {
+    setControls(newCfg);
+    if (onUpdateControlsConfig) {
+      onUpdateControlsConfig(newCfg);
+    }
+  };
+
+  // State for opening Controls Mapping Modal in-game
+  const [showMappingModal, setShowMappingModal] = useState(false);
+
+  // Live keyboard and mouse press states for visual key highlight
+  const [activeKeys, setActiveKeys] = useState<{
+    w: boolean;
+    a: boolean;
+    s: boolean;
+    d: boolean;
+    f: boolean;
+    space: boolean;
+    e: boolean;
+    r: boolean;
+    q: boolean;
+    leftClick: boolean;
+    rightClick: boolean;
+  }>({
+    w: false,
+    a: false,
+    s: false,
+    d: false,
+    f: false,
+    space: false,
+    e: false,
+    r: false,
+    q: false,
+    leftClick: false,
+    rightClick: false,
+  });
+
+  // Touch identifiers tracking for multitouch
   const leftTouchIdRef = useRef<number | null>(null);
   const rightTouchIdRef = useRef<number | null>(null);
   const rightTouchStartTime = useRef<number>(0);
+
+  // D-Pad active directions (for tactile on-screen D-Pad mode)
+  const dpadDirectionsRef = useRef<{ up: boolean; down: boolean; left: boolean; right: boolean }>({
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+  });
+  const [dpadActive, setDpadActive] = useState({ up: false, down: false, left: false, right: false });
 
   // Left joystick visual state
   const [leftStick, setLeftStick] = useState<{
@@ -66,7 +141,6 @@ export const GameHUD: React.FC<GameHUDProps> = ({
     currY: 0,
   });
 
-  const playerBrawler = BRAWLERS[engine.player.brawlerId];
   const isSuperReady = playerSuperCharge >= 100;
 
   // --- DESKTOP KEYBOARD & MOUSE CONTROLS ---
@@ -74,20 +148,54 @@ export const GameHUD: React.FC<GameHUDProps> = ({
     const keys: Record<string, boolean> = {};
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      keys[e.key.toLowerCase()] = true;
+      const k = e.key.toLowerCase();
+      keys[k] = true;
+
+      // Update live visual indicators
+      setActiveKeys((prev) => ({
+        ...prev,
+        w: !!(keys['w'] || keys['arrowup']),
+        a: !!(keys['a'] || keys['arrowleft']),
+        s: !!(keys['s'] || keys['arrowdown']),
+        d: !!(keys['d'] || keys['arrowright']),
+        f: !!keys['f'],
+        space: !!keys[' '],
+        e: !!keys['e'],
+        r: !!keys['r'],
+        q: !!keys['q'],
+      }));
+
       updateKeyboardMovement();
 
-      if (e.key === ' ' || e.key.toLowerCase() === 'r') {
+      if (e.key === ' ' || k === 'r') {
         engine.firePlayerSuper();
-      } else if (e.key.toLowerCase() === 'e' || e.key.toLowerCase() === 'q') {
+      } else if (k === 'e' || k === 'q') {
         engine.usePlayerGadget();
-      } else if (e.key.toLowerCase() === 'f') {
+      } else if (k === 'f') {
         engine.firePlayerNormalAttack();
+      } else if (k === 'tab' || k === 'h') {
+        e.preventDefault();
+        setShowMappingModal((prev) => !prev);
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      keys[e.key.toLowerCase()] = false;
+      const k = e.key.toLowerCase();
+      keys[k] = false;
+
+      setActiveKeys((prev) => ({
+        ...prev,
+        w: !!(keys['w'] || keys['arrowup']),
+        a: !!(keys['a'] || keys['arrowleft']),
+        s: !!(keys['s'] || keys['arrowdown']),
+        d: !!(keys['d'] || keys['arrowright']),
+        f: !!keys['f'],
+        space: !!keys[' '],
+        e: !!keys['e'],
+        r: !!keys['r'],
+        q: !!keys['q'],
+      }));
+
       updateKeyboardMovement();
     };
 
@@ -98,6 +206,12 @@ export const GameHUD: React.FC<GameHUDProps> = ({
       if (keys['s'] || keys['arrowdown']) dy += 1;
       if (keys['a'] || keys['arrowleft']) dx -= 1;
       if (keys['d'] || keys['arrowright']) dx += 1;
+
+      // Also merge with D-Pad touch if active
+      if (dpadDirectionsRef.current.up) dy -= 1;
+      if (dpadDirectionsRef.current.down) dy += 1;
+      if (dpadDirectionsRef.current.left) dx -= 1;
+      if (dpadDirectionsRef.current.right) dx += 1;
 
       if (dx !== 0 && dy !== 0) {
         dx *= 0.7071;
@@ -122,14 +236,21 @@ export const GameHUD: React.FC<GameHUDProps> = ({
     const handleMouseDown = (e: MouseEvent) => {
       if ((e.target as HTMLElement).closest('button')) return;
       if (e.button === 0) {
+        setActiveKeys((p) => ({ ...p, leftClick: true }));
         const rect = engine.canvas.getBoundingClientRect();
         const angle = Math.atan2(e.clientY - rect.top - rect.height / 2, e.clientX - rect.left - rect.width / 2);
         engine.firePlayerNormalAttack(angle);
       } else if (e.button === 2) {
+        setActiveKeys((p) => ({ ...p, rightClick: true }));
         const rect = engine.canvas.getBoundingClientRect();
         const angle = Math.atan2(e.clientY - rect.top - rect.height / 2, e.clientX - rect.left - rect.width / 2);
         engine.firePlayerSuper(angle);
       }
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button === 0) setActiveKeys((p) => ({ ...p, leftClick: false }));
+      if (e.button === 2) setActiveKeys((p) => ({ ...p, rightClick: false }));
     };
 
     const handleContextMenu = (e: MouseEvent) => {
@@ -140,6 +261,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('contextmenu', handleContextMenu);
 
     return () => {
@@ -147,13 +269,12 @@ export const GameHUD: React.FC<GameHUDProps> = ({
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('contextmenu', handleContextMenu);
     };
   }, [engine]);
 
   // --- NATIVE MULTITOUCH CONTROLS (INDEPENDENT IDENTIFIER TRACKING) ---
-
-  // Global window touch listeners to prevent sticky controls if finger glides off the element
   useEffect(() => {
     const onWindowTouchMove = (e: TouchEvent) => {
       // 1. Process Left Stick if its touch identifier is moving
@@ -179,6 +300,15 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               x: (Math.cos(angle) * normDist) / maxRadius,
               y: (Math.sin(angle) * normDist) / maxRadius,
             };
+
+            // Set visual active direction keys
+            setActiveKeys((prev) => ({
+              ...prev,
+              w: dy < -10,
+              s: dy > 10,
+              a: dx < -10,
+              d: dx > 10,
+            }));
             break;
           }
         }
@@ -222,6 +352,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             leftTouchIdRef.current = null;
             setLeftStick({ active: false, startX: 0, startY: 0, currX: 0, currY: 0 });
             engine.moveVector = { x: 0, y: 0 };
+            setActiveKeys((p) => ({ ...p, w: false, s: false, a: false, d: false }));
             break;
           }
         }
@@ -294,6 +425,25 @@ export const GameHUD: React.FC<GameHUDProps> = ({
     engine.aimVector.isAiming = true;
   };
 
+  // Dedicated D-Pad Handlers (for mobile & desktop click/touch)
+  const setDpadDirection = (dir: 'up' | 'down' | 'left' | 'right', pressed: boolean) => {
+    dpadDirectionsRef.current[dir] = pressed;
+    setDpadActive({ ...dpadDirectionsRef.current });
+
+    let dx = 0;
+    let dy = 0;
+    if (dpadDirectionsRef.current.up) dy -= 1;
+    if (dpadDirectionsRef.current.down) dy += 1;
+    if (dpadDirectionsRef.current.left) dx -= 1;
+    if (dpadDirectionsRef.current.right) dx += 1;
+
+    if (dx !== 0 && dy !== 0) {
+      dx *= 0.7071;
+      dy *= 0.7071;
+    }
+    engine.moveVector = { x: dx, y: dy };
+  };
+
   // Minimap rendering loop
   useEffect(() => {
     let animId: number;
@@ -353,27 +503,27 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2 sm:p-4 select-none touch-none overflow-hidden font-['Outfit',sans-serif]">
-      {/* TOP BAR: Alive Brawlers, Power Cubes, Poison Storm Banner, Minimap, Exit */}
+      {/* TOP BAR: Alive Brawlers, Power Cubes, Poison Storm Banner, Minimap, Key Mapping Modal Button & Exit */}
       <div className="flex items-start justify-between w-full">
         {/* Left: Alive count & Power Cubes */}
-        <div className="flex items-center gap-2 pointer-events-auto">
+        <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
           {/* Alive count pill */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-900/90 border-2 border-slate-700 shadow-xl backdrop-blur-md">
-            <span className="text-base sm:text-lg">💀</span>
+          <div className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-slate-900/90 border-2 border-slate-700 shadow-xl backdrop-blur-md">
+            <span className="text-sm sm:text-base">💀</span>
             <div className="flex flex-col">
-              <span className="text-[9px] text-slate-400 font-bold uppercase leading-none">VIVI</span>
-              <span className="font-black text-sm sm:text-base text-white font-game leading-tight">
-                {aliveCount} <span className="text-[10px] text-slate-400">/ 10</span>
+              <span className="text-[8px] sm:text-[9px] text-slate-400 font-bold uppercase leading-none">VIVI</span>
+              <span className="font-black text-xs sm:text-base text-white font-game leading-tight">
+                {aliveCount} <span className="text-[9px] text-slate-400">/ 10</span>
               </span>
             </div>
           </div>
 
           {/* Power Cubes badge */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-950/90 border-2 border-emerald-500 shadow-xl backdrop-blur-md">
-            <span className="text-base sm:text-lg">⚡</span>
+          <div className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-emerald-950/90 border-2 border-emerald-500 shadow-xl backdrop-blur-md">
+            <span className="text-sm sm:text-base">⚡</span>
             <div className="flex flex-col">
-              <span className="text-[9px] text-emerald-400 font-bold uppercase leading-none">CUBI</span>
-              <span className="font-black text-sm sm:text-base text-emerald-300 font-game leading-tight">
+              <span className="text-[8px] sm:text-[9px] text-emerald-400 font-bold uppercase leading-none">CUBI</span>
+              <span className="font-black text-xs sm:text-base text-emerald-300 font-game leading-tight">
                 {powerCubes}
               </span>
             </div>
@@ -404,15 +554,49 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
         </div>
 
-        {/* Right: Minimap and Exit button */}
+        {/* Right: Controls & Mapping modal trigger, Visible Keys Toggle, Minimap and Exit button */}
         <div className="flex items-center gap-1.5 pointer-events-auto">
+          {/* Controls & Key Mapping Modal button */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              setShowMappingModal(true);
+            }}
+            title="Mappatura Comandi & Tasti (TAB)"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border-2 border-amber-400 text-amber-300 font-black text-[10px] sm:text-xs shadow-md transition active:scale-95"
+          >
+            <Gamepad2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+            <span className="hidden sm:inline">Mappatura</span>
+            <span className="px-1 py-0.2 rounded bg-amber-400 text-slate-950 font-black text-[8px] sm:text-[9px]">
+              TAB
+            </span>
+          </button>
+
+          {/* Quick toggle visible keys overlay button */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              updateControls({ ...controls, showVisibleKeys: !controls.showVisibleKeys });
+            }}
+            title={controls.showVisibleKeys ? 'Nascondi Tasti a Schermo' : 'Mostra Tasti a Schermo'}
+            className={`p-1.5 rounded-xl border transition active:scale-95 ${
+              controls.showVisibleKeys
+                ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                : 'bg-slate-800/80 border-slate-600 text-slate-400'
+            }`}
+          >
+            {controls.showVisibleKeys ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          </button>
+
+          {/* Minimap */}
           <div className="rounded-xl border border-slate-700 bg-slate-900/90 p-0.5 shadow-lg backdrop-blur-md">
-            <canvas ref={minimapCanvasRef} width={64} height={64} className="rounded-lg block" />
+            <canvas ref={minimapCanvasRef} width={56} height={56} className="rounded-lg block" />
           </div>
 
+          {/* Exit button */}
           <button
             onClick={onExitMatch}
-            className="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-red-900/80 border border-slate-600 text-[11px] font-bold text-slate-200 active:scale-95 transition"
+            className="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-red-900/80 border border-slate-600 text-[10px] sm:text-[11px] font-bold text-slate-200 active:scale-95 transition"
           >
             Esci
           </button>
@@ -451,60 +635,263 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
       </div>
 
-      {/* Bottom Controls Bar: Left Joystick, Gadget, Super Button, Right Attack Joystick */}
-      <div className="flex items-end justify-between w-full pb-1 sm:pb-3">
-        {/* Left: Virtual Movement Joystick (Multi-Touch Enabled) */}
-        <div
-          ref={leftTouchRef}
-          onTouchStart={handleLeftTouchStart}
-          className="relative w-36 h-36 sm:w-44 sm:h-44 rounded-full bg-slate-900/40 border-2 border-slate-700/50 backdrop-blur-xs pointer-events-auto touch-none flex items-center justify-center shrink-0"
-        >
-          {/* Base Thumbstick ring */}
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-sky-400/40 bg-sky-500/10 flex items-center justify-center pointer-events-none">
-            <span className="text-[9px] text-sky-300 font-bold opacity-60">MUOVI</span>
+      {/* BOTTOM CONTROLS BAR: Left Movement (Joystick OR D-Pad with Visible Keys), Gadget, Super Button, Right Combat */}
+      <div className="flex items-end justify-between w-full pb-1 sm:pb-3 pointer-events-none">
+        {/* LEFT CONTROLS: Movement with Visible WASD Keys (Multi-Touch Enabled) */}
+        <div className="relative pointer-events-auto flex items-end gap-2">
+          {controls.mobileMoveMode === 'joystick' ? (
+            /* --- VIRTUAL JOYSTICK MODE WITH VISIBLE PERIMETER KEYS --- */
+            <div
+              ref={leftTouchRef}
+              onTouchStart={handleLeftTouchStart}
+              className="relative w-36 h-36 sm:w-44 sm:h-44 rounded-full bg-slate-900/60 border-2 border-sky-400/50 backdrop-blur-xs touch-none flex items-center justify-center shrink-0 shadow-lg"
+            >
+              {/* Visible WASD Keys on the joystick perimeter */}
+              {controls.showVisibleKeys && (
+                <>
+                  {/* W Key (Top) */}
+                  <div
+                    className={`absolute top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md border font-black text-[10px] shadow transition-all pointer-events-none ${
+                      activeKeys.w || dpadActive.up
+                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80'
+                        : 'bg-slate-900/90 border-sky-500/60 text-sky-300 opacity-90'
+                    }`}
+                  >
+                    W ▲
+                  </div>
+
+                  {/* S Key (Bottom) */}
+                  <div
+                    className={`absolute bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md border font-black text-[10px] shadow transition-all pointer-events-none ${
+                      activeKeys.s || dpadActive.down
+                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80'
+                        : 'bg-slate-900/90 border-sky-500/60 text-sky-300 opacity-90'
+                    }`}
+                  >
+                    S ▼
+                  </div>
+
+                  {/* A Key (Left) */}
+                  <div
+                    className={`absolute left-1 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded-md border font-black text-[10px] shadow transition-all pointer-events-none ${
+                      activeKeys.a || dpadActive.left
+                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80'
+                        : 'bg-slate-900/90 border-sky-500/60 text-sky-300 opacity-90'
+                    }`}
+                  >
+                    ◄ A
+                  </div>
+
+                  {/* D Key (Right) */}
+                  <div
+                    className={`absolute right-1 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded-md border font-black text-[10px] shadow transition-all pointer-events-none ${
+                      activeKeys.d || dpadActive.right
+                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80'
+                        : 'bg-slate-900/90 border-sky-500/60 text-sky-300 opacity-90'
+                    }`}
+                  >
+                    D ►
+                  </div>
+                </>
+              )}
+
+              {/* Base Thumbstick ring */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-sky-400/60 bg-sky-500/20 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[10px] text-sky-200 font-black tracking-wider">MUOVI</span>
+                {controls.showVisibleKeys && (
+                  <span className="text-[8px] text-sky-300 font-bold">WASD</span>
+                )}
+              </div>
+
+              {/* Active Thumb Knob */}
+              {leftStick.active && (
+                <div
+                  className="absolute w-14 h-14 rounded-full bg-gradient-to-tr from-sky-500 to-sky-300 border-2 border-white shadow-xl pointer-events-none transform -translate-x-1/2 -translate-y-1/2 animate-pulse"
+                  style={{ left: `${leftStick.currX}px`, top: `${leftStick.currY}px` }}
+                />
+              )}
+            </div>
+          ) : (
+            /* --- VISIBLE D-PAD TOUCHABLE BUTTONS MODE --- */
+            <div className="relative w-36 h-36 sm:w-44 sm:h-44 p-1 rounded-3xl bg-slate-900/70 border-2 border-sky-400/60 backdrop-blur-xs flex flex-col items-center justify-center shrink-0 shadow-lg">
+              {/* Up button */}
+              <button
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  setDpadDirection('up', true);
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  setDpadDirection('up', false);
+                }}
+                onMouseDown={() => setDpadDirection('up', true)}
+                onMouseUp={() => setDpadDirection('up', false)}
+                className={`w-11 h-11 sm:w-13 sm:h-13 rounded-xl border-2 flex flex-col items-center justify-center font-black text-xs transition active:scale-95 ${
+                  dpadActive.up || activeKeys.w
+                    ? 'bg-sky-400 border-white text-slate-950 scale-105 shadow-lg shadow-sky-400/60'
+                    : 'bg-slate-800 border-sky-400/50 text-sky-200 hover:bg-slate-700'
+                }`}
+              >
+                <span className="text-[9px]">▲</span>
+                <span className="text-[10px] font-black leading-none">W</span>
+              </button>
+
+              <div className="flex items-center gap-2 my-1">
+                {/* Left button */}
+                <button
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    setDpadDirection('left', true);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    setDpadDirection('left', false);
+                  }}
+                  onMouseDown={() => setDpadDirection('left', true)}
+                  onMouseUp={() => setDpadDirection('left', false)}
+                  className={`w-11 h-11 sm:w-13 sm:h-13 rounded-xl border-2 flex flex-col items-center justify-center font-black text-xs transition active:scale-95 ${
+                    dpadActive.left || activeKeys.a
+                      ? 'bg-sky-400 border-white text-slate-950 scale-105 shadow-lg shadow-sky-400/60'
+                      : 'bg-slate-800 border-sky-400/50 text-sky-200 hover:bg-slate-700'
+                  }`}
+                >
+                  <span className="text-[9px]">◄</span>
+                  <span className="text-[10px] font-black leading-none">A</span>
+                </button>
+
+                {/* Center dot / quick switch */}
+                <div className="w-8 h-8 rounded-full bg-slate-950/80 border border-sky-500/40 flex items-center justify-center text-[8px] text-sky-300 font-black">
+                  +
+                </div>
+
+                {/* Right button */}
+                <button
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    setDpadDirection('right', true);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    setDpadDirection('right', false);
+                  }}
+                  onMouseDown={() => setDpadDirection('right', true)}
+                  onMouseUp={() => setDpadDirection('right', false)}
+                  className={`w-11 h-11 sm:w-13 sm:h-13 rounded-xl border-2 flex flex-col items-center justify-center font-black text-xs transition active:scale-95 ${
+                    dpadActive.right || activeKeys.d
+                      ? 'bg-sky-400 border-white text-slate-950 scale-105 shadow-lg shadow-sky-400/60'
+                      : 'bg-slate-800 border-sky-400/50 text-sky-200 hover:bg-slate-700'
+                  }`}
+                >
+                  <span className="text-[9px]">►</span>
+                  <span className="text-[10px] font-black leading-none">D</span>
+                </button>
+              </div>
+
+              {/* Down button */}
+              <button
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  setDpadDirection('down', true);
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  setDpadDirection('down', false);
+                }}
+                onMouseDown={() => setDpadDirection('down', true)}
+                onMouseUp={() => setDpadDirection('down', false)}
+                className={`w-11 h-11 sm:w-13 sm:h-13 rounded-xl border-2 flex flex-col items-center justify-center font-black text-xs transition active:scale-95 ${
+                  dpadActive.down || activeKeys.s
+                    ? 'bg-sky-400 border-white text-slate-950 scale-105 shadow-lg shadow-sky-400/60'
+                    : 'bg-slate-800 border-sky-400/50 text-sky-200 hover:bg-slate-700'
+                }`}
+              >
+                <span className="text-[10px] font-black leading-none">S</span>
+                <span className="text-[9px]">▼</span>
+              </button>
+            </div>
+          )}
+
+          {/* Quick toggle between Joystick and D-Pad mode button */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              updateControls({
+                ...controls,
+                mobileMoveMode: controls.mobileMoveMode === 'joystick' ? 'dpad' : 'joystick',
+              });
+            }}
+            title={controls.mobileMoveMode === 'joystick' ? 'Passa a Tasti D-Pad' : 'Passa a Joystick Fluido'}
+            className="p-1.5 rounded-xl bg-slate-900/90 border border-slate-700 text-sky-400 hover:text-white shadow-md transition active:scale-90"
+          >
+            {controls.mobileMoveMode === 'joystick' ? (
+              <span className="text-xs">🕹️</span>
+            ) : (
+              <span className="text-xs">🔘</span>
+            )}
+          </button>
+        </div>
+
+        {/* CENTER: Active Gadget Button & Visual Keyboard Guide */}
+        <div className="flex flex-col items-center gap-1.5 pointer-events-auto pb-1">
+          {/* Active Gadget Button (Touch-Safe) */}
+          <div className="relative">
+            <button
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                engine.usePlayerGadget();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                engine.usePlayerGadget();
+              }}
+              disabled={engine.player.gadgetCharges <= 0}
+              className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center border-2 sm:border-3 shadow-xl transition active:scale-90 ${
+                activeKeys.e || activeKeys.q
+                  ? 'bg-emerald-400 border-white text-slate-950 scale-110 shadow-emerald-400/70'
+                  : engine.player.gadgetCharges > 0
+                  ? 'bg-emerald-600 border-emerald-300 text-white hover:bg-emerald-500'
+                  : 'bg-slate-800 border-slate-600 text-slate-500 opacity-60'
+              }`}
+            >
+              <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-[8px] sm:text-[9px] font-black tracking-tighter leading-none mt-0.5">
+                GADGET ({engine.player.gadgetCharges})
+              </span>
+            </button>
+
+            {/* Visible Key Badge for Gadget */}
+            {controls.showVisibleKeys && (
+              <span
+                className={`absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-md font-black text-[8px] sm:text-[9px] border shadow transition-all pointer-events-none ${
+                  activeKeys.e || activeKeys.q
+                    ? 'bg-emerald-400 border-white text-slate-950 scale-110'
+                    : 'bg-slate-900 border-emerald-400 text-emerald-300'
+                }`}
+              >
+                [E / Q]
+              </span>
+            )}
           </div>
 
-          {/* Active Thumb Knob */}
-          {leftStick.active && (
-            <div
-              className="absolute w-14 h-14 rounded-full bg-sky-500 border-2 border-white shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
-              style={{ left: `${leftStick.currX}px`, top: `${leftStick.currY}px` }}
-            />
+          {/* Desktop keys interactive helper pill */}
+          {controls.showVisibleKeys && (
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-950/80 border border-slate-700/80 shadow-md backdrop-blur-sm text-[10px]">
+              <span className={activeKeys.w || activeKeys.a || activeKeys.s || activeKeys.d ? 'text-sky-300 font-bold' : 'text-slate-400'}>
+                WASD: Muovi
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className={activeKeys.leftClick || activeKeys.f ? 'text-red-300 font-bold' : 'text-slate-400'}>
+                Click SX / F: Attacco
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className={activeKeys.space || activeKeys.r ? 'text-yellow-300 font-bold' : 'text-slate-400'}>
+                Spazio / R: Super
+              </span>
+            </div>
           )}
         </div>
 
-        {/* Center: Gadget and Desktop Key hints */}
-        <div className="flex flex-col items-center gap-2 pointer-events-auto pb-1">
-          {/* Active Gadget Button (Touch-Safe) */}
-          <button
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              engine.usePlayerGadget();
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              engine.usePlayerGadget();
-            }}
-            disabled={engine.player.gadgetCharges <= 0}
-            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center border-2 shadow-xl transition active:scale-90 ${
-              engine.player.gadgetCharges > 0
-                ? 'bg-emerald-600 border-emerald-300 text-white hover:bg-emerald-500'
-                : 'bg-slate-800 border-slate-600 text-slate-500 opacity-60'
-            }`}
-          >
-            <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="text-[8px] sm:text-[9px] font-black tracking-tighter">
-              GADGET ({engine.player.gadgetCharges})
-            </span>
-          </button>
-
-          {/* Desktop keys reminder (subtle) */}
-          <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-black/60 text-[9px] text-slate-300 border border-slate-700">
-            <span>WASD: Muovi</span> • <span>Click: Fuoco</span> • <span>Spazio: Super</span>
-          </div>
-        </div>
-
-        {/* Right: Super Button & Virtual Attack Joystick (Multi-Touch Enabled) */}
+        {/* RIGHT CONTROLS: Super Button & Visible Red Attack Button with Touch Aim (Multi-Touch Enabled) */}
         <div className="flex items-center gap-2 sm:gap-4 pointer-events-auto shrink-0">
           {/* Super Button (Touch-Safe) */}
           <div className="relative">
@@ -519,7 +906,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               }}
               disabled={!isSuperReady}
               className={`w-14 h-14 sm:w-18 sm:h-18 rounded-full flex flex-col items-center justify-center border-3 sm:border-4 shadow-xl transition active:scale-90 ${
-                isSuperReady
+                activeKeys.space || activeKeys.r || activeKeys.rightClick
+                  ? 'bg-yellow-200 border-white text-slate-950 scale-110 shadow-yellow-400/80'
+                  : isSuperReady
                   ? 'bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-300 border-yellow-200 text-slate-950 animate-bounce shadow-yellow-500/50'
                   : 'bg-slate-900 border-slate-700 text-slate-400'
               }`}
@@ -529,29 +918,79 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                 {isSuperReady ? 'SUPER!' : `${Math.floor(playerSuperCharge)}%`}
               </span>
             </button>
+
+            {/* Visible Key Badge for Super */}
+            {controls.showVisibleKeys && (
+              <span
+                className={`absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-md font-black text-[8px] sm:text-[9px] border shadow transition-all pointer-events-none whitespace-nowrap ${
+                  activeKeys.space || activeKeys.r || activeKeys.rightClick
+                    ? 'bg-yellow-300 border-white text-slate-950 scale-110'
+                    : 'bg-slate-900 border-yellow-400 text-yellow-300'
+                }`}
+              >
+                [SPAZIO / R]
+              </span>
+            )}
           </div>
 
-          {/* Right: Virtual Attack Joystick */}
-          <div
-            ref={rightTouchRef}
-            onTouchStart={handleRightTouchStart}
-            className="relative w-36 h-36 sm:w-44 sm:h-44 rounded-full bg-slate-900/40 border-2 border-red-900/50 backdrop-blur-xs pointer-events-auto touch-none flex items-center justify-center shrink-0"
-          >
-            {/* Base Thumbstick ring */}
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-red-500/40 bg-red-500/10 flex items-center justify-center pointer-events-none">
-              <span className="text-[9px] text-red-300 font-bold opacity-60">ATTACCO</span>
-            </div>
+          {/* Right: Virtual Attack Joystick & Visible Combat Fire Button */}
+          <div className="relative">
+            <div
+              ref={rightTouchRef}
+              onTouchStart={handleRightTouchStart}
+              onClick={() => engine.firePlayerNormalAttack()}
+              className="relative w-36 h-36 sm:w-44 sm:h-44 rounded-full bg-slate-900/60 border-2 border-red-900/60 backdrop-blur-xs touch-none flex items-center justify-center shrink-0 cursor-crosshair shadow-lg"
+            >
+              {/* Visible Attack Key Badge on top */}
+              {controls.showVisibleKeys && (
+                <div
+                  className={`absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md border font-black text-[9px] sm:text-[10px] shadow transition-all pointer-events-none whitespace-nowrap ${
+                    activeKeys.f || activeKeys.leftClick
+                      ? 'bg-red-500 border-white text-white scale-110 shadow-red-500/70'
+                      : 'bg-slate-900/90 border-red-500 text-red-300'
+                  }`}
+                >
+                  [CLICK SX / F]
+                </div>
+              )}
 
-            {/* Active Thumb Knob */}
-            {rightStick.active && (
+              {/* Base Attack Thumbstick Button */}
               <div
-                className="absolute w-14 h-14 rounded-full bg-red-600 border-2 border-white shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
-                style={{ left: `${rightStick.currX}px`, top: `${rightStick.currY}px` }}
-              />
-            )}
+                className={`w-18 h-18 sm:w-22 sm:h-22 rounded-full border-3 flex flex-col items-center justify-center transition shadow-lg ${
+                  activeKeys.f || activeKeys.leftClick
+                    ? 'bg-red-500 border-white text-white scale-110 shadow-red-500/60'
+                    : 'bg-gradient-to-tr from-red-700 to-red-500 border-red-300 text-white shadow-red-900/40'
+                }`}
+              >
+                <Crosshair className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span className="text-[9px] sm:text-[10px] font-black tracking-wide leading-none mt-0.5">
+                  FUOCO
+                </span>
+                <span className="text-[7px] sm:text-[8px] text-red-200 opacity-80 leading-none">
+                  Tocca / Mira
+                </span>
+              </div>
+
+              {/* Active Thumb Knob during drag aiming */}
+              {rightStick.active && (
+                <div
+                  className="absolute w-14 h-14 rounded-full bg-red-600 border-2 border-white shadow-xl pointer-events-none transform -translate-x-1/2 -translate-y-1/2 animate-pulse"
+                  style={{ left: `${rightStick.currX}px`, top: `${rightStick.currY}px` }}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* In-Game Controls & Key Mapping Modal */}
+      {showMappingModal && (
+        <ControlsMappingModal
+          currentConfig={controls}
+          onSave={updateControls}
+          onClose={() => setShowMappingModal(false)}
+        />
+      )}
     </div>
   );
 };

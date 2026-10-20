@@ -8,7 +8,7 @@ interface SettingsModalProps {
   openAudio: () => void;
 }
 
-export default function SettingsModal({ onClose, openControls, openAudio }: SettingsModalProps) {
+export function SettingsModal({ onClose, openControls, openAudio }: SettingsModalProps) {
   return (
     /* Sfondo oscurato con sfocatura */
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">

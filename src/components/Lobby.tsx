@@ -14,12 +14,14 @@ import {
   ArrowRight,
   Gamepad2,
   X,
+  Settings,
 } from 'lucide-react';
 import { BrawlerId, ControlsConfig, PlayerProfile } from '../types/game';
 import { BRAWLERS } from '../data/brawlers';
 import { PWAInstallButton } from './PWAInstallButton';
 import { ChangeNameModal } from './ChangeNameModal';
 import { ControlsMappingModal } from './ControlsMappingModal';
+import { SettingsModal } from './SettingsModal';
 import { sound } from '../utils/audio';
 
 interface LobbyProps {
@@ -44,6 +46,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   const [showControlsModal, setShowControlsModal] = useState(false);
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const selectedBrawler = BRAWLERS[profile.selectedBrawler];
   const brawlerProg = profile.brawlers[profile.selectedBrawler] || { level: 1, powerPoints: 0 };
@@ -178,6 +181,18 @@ export const Lobby: React.FC<LobbyProps> = ({
 
           {/* PWA Fullscreen & Install Button */}
           <PWAInstallButton />
+
+          {/* Nuovo bottone Impostazioni (Sotto a PWAInstallButton) */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              setShowSettingsModal(true);
+            }}
+            className="p-1.5 sm:p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border-2 border-zinc-600 text-amber-400 transition active:scale-95 flex items-center justify-center shadow-md"
+            title="Impostazioni di Gioco"
+          >
+            <Settings className="w-4 h-4 animate-[spin_12s_linear_infinite]" />
+          </button>
         </div>
       </header>
 

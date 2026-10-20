@@ -182,7 +182,7 @@ export const Lobby: React.FC<LobbyProps> = ({
       </header>
 
       {/* CENTER STAGE: Selected Brawler Showcase with 3D-style Podium (Mobile Optimized) */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center my-auto min-h-0">
+      <main className="relative z-8 flex-1 flex flex-col items-center justify-center my-auto min-h-0">
         <div className="relative flex flex-col items-center justify-center">
           {/* Animated Glow Halo */}
           <div

@@ -9,12 +9,12 @@ interface ChangeNameModalProps {
 }
 
 const FUN_NAMES = [
-  'StarLeon',
-  'El_Fuego',
-  'MegaSpike',
-  'ShadowBrawl',
-  'Crow_IT',
-  'ViperQueen',
+  'DuroW3',
+  'Peperone2030',
+  'BabiloniaRegna',
+  'SimbaRaiDue',
+  'MarraSoldi',
+  'BrawlClone',
   'ProSniper',
   'TitanKing',
   'BlazeMaster',
@@ -76,7 +76,7 @@ export const ChangeNameModal: React.FC<ChangeNameModalProps> = ({
               <h2 className="text-lg font-black font-game text-white tracking-wide">
                 CAMBIA NOME
               </h2>
-              <p className="text-[11px] text-indigo-300 font-bold">Personalizza il tuo Brawler</p>
+              <p className="text-[11px] text-indigo-300 font-bold">Creati la tua identita'</p>
             </div>
           </div>
 

@@ -158,7 +158,7 @@ export const BoxesModal: React.FC<BoxesModalProps> = ({ profile, onUpdateProfile
                   CASSE STELLE & PREMI
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Guadagna gettoni nei match Battle Royale per aprire casse e potenziare i tuoi brawler!
+                  Guadagna gettoni nei match Battle Royale per aprire casse e potenziare i tuoi clashers!
                 </p>
               </div>
             </div>
@@ -181,7 +181,7 @@ export const BoxesModal: React.FC<BoxesModalProps> = ({ profile, onUpdateProfile
               <div>
                 <div className="text-xs text-slate-400">I tuoi Gettoni Battaglia</div>
                 <div className="font-extrabold text-base text-amber-400">
-                  {profile.tokens} <span className="text-xs text-slate-300">/ 100 per Cassa Brawl</span>
+                  {profile.tokens} <span className="text-xs text-slate-300">/ 100 per Cassa Clash</span>
                 </div>
               </div>
             </div>
@@ -203,9 +203,9 @@ export const BoxesModal: React.FC<BoxesModalProps> = ({ profile, onUpdateProfile
             {/* 1. Cassa Brawl */}
             <div className="rounded-3xl bg-slate-800/80 border-2 border-sky-400 p-5 flex flex-col items-center justify-between text-center shadow-lg">
               <div className="text-5xl mb-2 animate-bounce">📦</div>
-              <h3 className="font-black text-lg text-white font-game">CASSA BRAWL</h3>
+              <h3 className="font-black text-lg text-white font-game">CASSA CLASH</h3>
               <p className="text-xs text-slate-300 mt-1 mb-4">
-                Monete, Punti Energia brawler e possibili gemme bonus!
+                Monete, Punti Energia clashers e possibili gemme bonus!
               </p>
               <button
                 onClick={() => openBox('brawl')}
@@ -223,7 +223,7 @@ export const BoxesModal: React.FC<BoxesModalProps> = ({ profile, onUpdateProfile
             {/* 2. Cassa Grande */}
             <div className="rounded-3xl bg-slate-800/80 border-2 border-purple-400 p-5 flex flex-col items-center justify-between text-center shadow-lg">
               <div className="text-5xl mb-2 animate-bounce">🎁</div>
-              <h3 className="font-black text-lg text-purple-300 font-game">CASSA GRANDE</h3>
+              <h3 className="font-black text-lg text-purple-300 font-game">CASSA MEDIA</h3>
               <p className="text-xs text-slate-300 mt-1 mb-4">
                 3x ricompense! Grandi scorte di monete e potenziamenti.
               </p>
@@ -246,7 +246,7 @@ export const BoxesModal: React.FC<BoxesModalProps> = ({ profile, onUpdateProfile
                 10x PREMI
               </div>
               <div className="text-5xl mb-2 animate-bounce">🌟</div>
-              <h3 className="font-black text-lg text-amber-300 font-game">MEGA CASSA</h3>
+              <h3 className="font-black text-lg text-amber-300 font-game">CRAZY CASSA</h3>
               <p className="text-xs text-slate-300 mt-1 mb-4">
                 L'apertura definitiva: fino a 7 oggetti tra monete, gemme e quintali di punti energia!
               </p>

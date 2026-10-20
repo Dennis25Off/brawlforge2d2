@@ -122,6 +122,7 @@ export const Lobby: React.FC<LobbyProps> = ({
               className="flex items-center gap-1 mt-0.5 px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[10px] sm:text-xs font-bold hover:bg-amber-500/25 transition active:scale-95"
             >
               <Trophy className="w-3 h-3 text-amber-400 shrink-0" />
+              <span>Trofei</span>
               <span>{profile.trophies}</span>
               <ArrowRight className="w-2.5 h-2.5 text-amber-400 shrink-0" />
             </button>

@@ -191,6 +191,15 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     };
   }, [profile.username, profile.platform, profile.brawlers, selectedBrawlerId, matchedPlayers, onUpdateProfile]);
 
+    // Ferma il motore di gioco in background quando la partita finisce (Game Over)
+  React.useEffect(() => {
+    if (gameOverResult && engineRef.current) {
+      console.log("Partita terminata: blocco il motore grafico in background.");
+      engineRef.current.stop();
+    }
+  }, [gameOverResult]);
+
+
   return (
     <div className="relative w-full h-full min-h-screen bg-[#090d16] overflow-hidden select-none touch-none">
       {/* 60FPS Game Canvas */}

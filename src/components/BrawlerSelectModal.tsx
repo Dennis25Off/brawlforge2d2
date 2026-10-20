@@ -59,7 +59,7 @@ export const BrawlerSelectModal: React.FC<BrawlerSelectModalProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div>
             <h2 className="text-2xl font-black text-white font-game tracking-wide">
-              I TUOI BRAWLER (5/5)
+              I TUOI CLASHERS (5/5)
             </h2>
             <p className="text-xs text-slate-400">
               Seleziona un eroe, visualizza abilità attive/passive e potenzia le statistiche
@@ -224,12 +224,12 @@ export const BrawlerSelectModal: React.FC<BrawlerSelectModalProps> = ({
                 >
                   <ArrowUpCircle className="w-4 h-4" />
                   <span>
-                    POTENZIA A LIV. {nextLevel} ({brawlerData.powerPoints}/{upgradeCost.powerPoints} ⚡ • {upgradeCost.coins} 💰)
+                    POTENZIA A LIV. {nextLevel} ({brawlerData.powerPoints}/{upgradeCost.powerPoints} ⚡ - {upgradeCost.coins} 💰)
                   </span>
                 </button>
               ) : (
                 <div className="flex-1 text-center py-2 text-xs font-black text-amber-400">
-                  LIVELLO MASSIMO RAGGIUNTO!
+                  LIVELLO MASSIMO!
                 </div>
               )}
 
@@ -247,7 +247,7 @@ export const BrawlerSelectModal: React.FC<BrawlerSelectModalProps> = ({
                     : 'brawl-btn-yellow text-slate-950'
                 }`}
               >
-                {isCurrentActive ? 'SELEZIONATO' : 'SELEZIONA BRAWLER'}
+                {isCurrentActive ? 'SELEZIONATO' : 'SELEZIONA CLASHER'}
               </button>
             </div>
           </div>

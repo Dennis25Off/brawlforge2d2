@@ -272,14 +272,27 @@ app.post('/api/matchmaking/ping', (req, res) => {
   const { id, roomId } = req.body;
   const now = Date.now();
 
-  let targetRoom = roomId ? activeMatches.get(roomId) : undefined;
+ //  NUOVO CODICE DA AGGIUNGERE:
+  let targetRoom;
+
+  // 1. Se il client passa il roomId, lo cerchiamo direttamente lì
+  if (roomId) {
+    targetRoom = activeMatches.get(roomId.trim().toUpperCase());
+  }
+
+  // 2. Se non lo trova o non è stato passato, cerchiamo in quale stanza attiva si trova il giocatore
   if (!targetRoom) {
-    const p = activeQueue.find((q) => q.id === id);
-    if (p?.assignedRoomId) {
-      targetRoom = activeMatches.get(p.assignedRoomId) || currentOpenRoom;
-    } else {
-      targetRoom = currentOpenRoom;
+    for (const room of activeMatches.values()) {
+      if (room.players.some((p) => p.id === id)) {
+        targetRoom = room;
+        break;
+      }
     }
+  }
+
+  // 3. Se non è da nessuna parte, fallback sulla stanza aperta corrente
+  if (!targetRoom) {
+    targetRoom = currentOpenRoom;
   }
 
   const player = targetRoom.players.find((p) => p.id === id);

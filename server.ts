@@ -243,11 +243,11 @@ app.post('/api/matchmaking/join', (req, res) => {
     player.platform = platform;
   }
 
-  // If 2 or more real players join, trigger synchronized countdown
+  // Se 2 o piu giocatori reali entrano in lobby, parte il countdown sincronizzato
   if (targetRoom.players.length >= 2 && targetRoom.status === 'waiting') {
     targetRoom.status = 'countdown';
     targetRoom.countdownStart = now;
-    targetRoom.gameStartTime = now + 4000; // 4s countdown
+    targetRoom.gameStartTime = now + 10000; // Countdown di 10 secondi
     targetRoom.deterministicBots = generateDeterministicBots(targetRoom.players.length);
   }
 
@@ -287,10 +287,10 @@ app.post('/api/matchmaking/ping', (req, res) => {
     player.lastPing = now;
   }
 
-  // Auto-start countdown if player has been alone in waiting room for >= 6 seconds
+  // Countdown che inizia la partita se il giocatore e da solo. Valore attuale = 20 secondi
   if (targetRoom.status === 'waiting' && targetRoom.players.length >= 1) {
     const waitTime = now - targetRoom.players[0].joinedAt;
-    if (waitTime >= 6000) {
+    if (waitTime >= 20000) {
       targetRoom.status = 'countdown';
       targetRoom.countdownStart = now;
       targetRoom.gameStartTime = now + 3500;

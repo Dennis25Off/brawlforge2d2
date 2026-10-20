@@ -7,6 +7,7 @@ import { sound } from '../utils/audio';
 interface MatchmakingModalProps {
   profile: PlayerProfile;
   selectedBrawlerId: BrawlerId;
+  requestedRoomId?: string;
   onMatchReady: (matchedPlayers: LobbyPlayerInfo[]) => void;
   onCancel: () => void;
 }
@@ -30,11 +31,14 @@ const BRAWLER_KEYS: BrawlerId[] = ['blaze', 'viper', 'titan', 'raven', 'harmony'
 export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
   profile,
   selectedBrawlerId,
+  requestedRoomId,
   onMatchReady,
   onCancel,
 }) => {
-  const [secondsRemaining, setSecondsRemaining] = useState(10);
+  const [secondsRemaining, setSecondsRemaining] = useState(6);
   const [botFillTriggered, setBotFillTriggered] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [roomId, setRoomId] = useState<string>(requestedRoomId || 'CS-WAITING');
   const [players, setPlayers] = useState<LobbyPlayerInfo[]>([
     {
       id: profile.id,
@@ -43,13 +47,15 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
       trophies: profile.trophies,
       platform: profile.platform,
       isBot: false,
+      spawnIndex: 0,
     },
   ]);
   const [countdown, setCountdown] = useState<number | null>(null);
 
   const channelRef = useRef<BroadcastChannel | null>(null);
   const isMatchStartingRef = useRef(false);
-  const currentRoomIdRef = useRef<string>('room_' + Date.now());
+  const currentRoomIdRef = useRef<string>(requestedRoomId || 'CS-WAITING');
+  const deterministicBotsRef = useRef<LobbyPlayerInfo[]>([]);
 
   useEffect(() => {
     // 1. Setup local BroadcastChannel for zero-latency inter-tab discovery
@@ -95,112 +101,76 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
         brawlerId: selectedBrawlerId,
         trophies: profile.trophies,
         platform: profile.platform,
+        requestedRoomId: requestedRoomId || undefined,
       }),
     })
       .then((res) => res.json())
       .then((data) => {
         if (data?.roomId) {
           currentRoomIdRef.current = data.roomId;
+          setRoomId(data.roomId);
+        }
+        if (Array.isArray(data?.deterministicBots)) {
+          deterministicBotsRef.current = data.deterministicBots;
         }
         if (data?.players && Array.isArray(data.players)) {
-          setPlayers((curr) => {
-            const merged = [...curr];
-            data.players.forEach((p: { id: string; name: string; brawlerId: BrawlerId; trophies: number; platform: CrossPlayPlatform }) => {
-              if (!merged.some((m) => m.id === p.id) && merged.length < 10) {
-                merged.push({ ...p, isBot: false });
-                sound.playPlayerJoined();
-              }
-            });
-            return merged;
-          });
+          setPlayers(
+            data.players.map((p: any) => ({
+              ...p,
+              isBot: false,
+            }))
+          );
+        }
+        if (data?.status === 'countdown' && typeof data.countdownRemaining === 'number') {
+          triggerServerCountdown(data.countdownRemaining, data.players, data.deterministicBots);
         }
       })
       .catch(() => {});
 
-    // Polling interval to check for other real players joining across devices
+    // Polling interval to sync room status and players across devices
     const pollInterval = setInterval(() => {
       if (isMatchStartingRef.current) return;
+
       fetch('/api/matchmaking/ping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: profile.id }),
+        body: JSON.stringify({ id: profile.id, roomId: currentRoomIdRef.current }),
       })
         .then((res) => res.json())
         .then((data) => {
           if (data?.roomId) {
             currentRoomIdRef.current = data.roomId;
+            setRoomId(data.roomId);
+          }
+          if (Array.isArray(data?.deterministicBots)) {
+            deterministicBotsRef.current = data.deterministicBots;
           }
           if (data?.players && Array.isArray(data.players)) {
-            setPlayers((curr) => {
-              const merged = [...curr];
-              data.players.forEach((p: { id: string; name: string; brawlerId: BrawlerId; trophies: number; platform: CrossPlayPlatform }) => {
-                if (!merged.some((m) => m.id === p.id) && merged.length < 10) {
-                  merged.push({ ...p, isBot: false });
-                  sound.playPlayerJoined();
-                }
-              });
-              if (merged.length >= 10 && !isMatchStartingRef.current) {
-                startCountdown(merged);
-              }
-              return merged;
-            });
+            setPlayers(
+              data.players.map((p: any) => ({
+                ...p,
+                isBot: false,
+              }))
+            );
+          }
+
+          if (data?.status === 'countdown' && typeof data.countdownRemaining === 'number') {
+            triggerServerCountdown(data.countdownRemaining, data.players, data.deterministicBots);
           }
         })
         .catch(() => {});
-    }, 1000);
+    }, 700);
 
-    // 3. 10-Second Strict Countdown Timer for Real Players
-    const countdownTimer = setInterval(() => {
-      setSecondsRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(countdownTimer);
-          // 10 SECONDS EXPIRED: Fill remaining slots with AI Bots!
-          triggerBotFill();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    const triggerBotFill = () => {
-      setBotFillTriggered(true);
-      sound.playCountdown(false);
-
-      setPlayers((current) => {
-        if (current.length >= 10) {
-          startCountdown(current);
-          return current;
-        }
-
-        const filled = [...current];
-        const needed = 10 - filled.length;
-
-        for (let i = 0; i < needed; i++) {
-          const botBrawler = BRAWLER_KEYS[(i + filled.length) % BRAWLER_KEYS.length];
-          const botPlatform = PLATFORMS[i % PLATFORMS.length];
-          const botName = SAMPLE_BOT_NAMES[i % SAMPLE_BOT_NAMES.length];
-
-          filled.push({
-            id: `bot_fill_${i}_${Date.now()}`,
-            name: botName,
-            brawlerId: botBrawler,
-            trophies: Math.max(0, profile.trophies + Math.floor((Math.random() - 0.5) * 60)),
-            platform: botPlatform,
-            isBot: true,
-          });
-        }
-
-        startCountdown(filled);
-        return filled;
-      });
-    };
-
-    const startCountdown = (finalRoster: LobbyPlayerInfo[]) => {
+    const triggerServerCountdown = (
+      remainingSecs: number,
+      realPlayers?: any[],
+      serverBots?: any[]
+    ) => {
       if (isMatchStartingRef.current) return;
       isMatchStartingRef.current = true;
       clearInterval(pollInterval);
 
-      let count = 3;
+      let count = Math.max(1, remainingSecs);
       setCountdown(count);
       sound.playCountdown(false);
 
@@ -214,28 +184,66 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
           sound.playCountdown(true);
         } else {
           clearInterval(countInterval);
-          const rosterWithRoom = finalRoster.map((p) => ({
-            ...p,
+
+          // Build final 10-player roster: real players + deterministic bots
+          const finalReal = (realPlayers || players).map((p: any, idx: number) => ({
+            id: p.id,
+            name: p.name,
+            brawlerId: p.brawlerId as BrawlerId,
+            trophies: p.trophies || 0,
+            platform: p.platform as CrossPlayPlatform,
+            isBot: false,
             roomId: currentRoomIdRef.current,
+            spawnIndex: typeof p.spawnIndex === 'number' ? p.spawnIndex : idx,
           }));
-          onMatchReady(rosterWithRoom);
+
+          const bots = (serverBots || deterministicBotsRef.current).map((b: any, bIdx: number) => ({
+            id: b.id || `bot_synced_${finalReal.length + bIdx}`,
+            name: b.name || `${SAMPLE_BOT_NAMES[bIdx % SAMPLE_BOT_NAMES.length]}`,
+            brawlerId: (b.brawlerId || BRAWLER_KEYS[bIdx % BRAWLER_KEYS.length]) as BrawlerId,
+            trophies: b.trophies || 300,
+            platform: (b.platform || PLATFORMS[bIdx % PLATFORMS.length]) as CrossPlayPlatform,
+            isBot: true,
+            roomId: currentRoomIdRef.current,
+            spawnIndex: typeof b.spawnIndex === 'number' ? b.spawnIndex : finalReal.length + bIdx,
+          }));
+
+          const fullRoster = [...finalReal, ...bots].slice(0, 10);
+          onMatchReady(fullRoster);
         }
       }, 700);
     };
 
     return () => {
       clearInterval(pollInterval);
-      clearInterval(countdownTimer);
       if (channelRef.current) {
         channelRef.current.close();
       }
       fetch('/api/matchmaking/leave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: profile.id }),
+        body: JSON.stringify({ id: profile.id, roomId: currentRoomIdRef.current }),
       }).catch(() => {});
     };
-  }, [profile, selectedBrawlerId, onMatchReady]);
+  }, [profile, selectedBrawlerId, requestedRoomId, onMatchReady]);
+
+  const handleStartNow = () => {
+    sound.playClick();
+    fetch('/api/matchmaking/start-now', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: currentRoomIdRef.current }),
+    }).catch(() => {});
+  };
+
+  const handleCopyRoomCode = () => {
+    sound.playClick();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(roomId).catch(() => {});
+    }
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
 
   const renderPlatformIcon = (platform: CrossPlayPlatform) => {
     if (platform === 'pc') return <span title="PC"><Monitor className="w-3.5 h-3.5 text-sky-400" /></span>;
@@ -244,7 +252,7 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
   };
 
   const realPlayerCount = players.filter((p) => !p.isBot).length;
-  const botCount = players.filter((p) => p.isBot).length;
+  const botCount = Math.max(0, 10 - realPlayerCount);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
@@ -264,36 +272,53 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
 
         {/* Header */}
         <div className="flex flex-col items-center mb-5 text-center">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950 border border-indigo-500 text-indigo-300 text-xs font-bold mb-2">
-            <Globe className="w-4 h-4 text-sky-400 animate-spin" />
-            <span>CROSS-PLAY ATTIVO • SERVER MULTIPLAYER</span>
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950 border border-indigo-500 text-indigo-300 text-xs font-bold">
+              <Globe className="w-4 h-4 text-sky-400 animate-spin" />
+              <span>CROSS-PLAY ATTIVO • MULTIPLAYER REALE</span>
+            </div>
+
+            {/* Room Code with 1-click Copy */}
+            <button
+              onClick={handleCopyRoomCode}
+              title="Clicca per copiare il codice stanza e condividerlo con amici su PC o Mobile!"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400 text-amber-300 text-xs font-black transition active:scale-95"
+            >
+              <span>🔑 STANZA:</span>
+              <span className="font-mono text-white underline">{roomId}</span>
+              <span className="text-[10px] text-amber-400 font-bold ml-1">
+                {copiedCode ? '✓ COPIATO!' : '📋 COPIA'}
+              </span>
+            </button>
           </div>
 
           <h2 className="font-extrabold text-2xl sm:text-3xl text-white font-game tracking-wide">
             {countdown !== null ? (
-              <span className="text-amber-400 animate-bounce">SCONTRO IMMINENTE!</span>
-            ) : botFillTriggered ? (
-              <span className="text-purple-300">COMPLETAMENTO CON I BOT...</span>
+              <span className="text-amber-400 animate-bounce">SCONTRO SINCRONIZZATO!</span>
+            ) : realPlayerCount > 1 ? (
+              <span className="text-emerald-400">GIOCATORE REALE TROVATO!</span>
             ) : (
-              'RICERCA GIOCATORI REALI...'
+              'RICERCA GIOCATORI CROSS-PLATFORM...'
             )}
           </h2>
 
-          {/* 10-Second Timer Banner */}
+          {/* Real-time Status Banner */}
           <div className="mt-2 flex items-center gap-2 px-4 py-1.5 rounded-xl bg-slate-950 border-2 border-slate-700 shadow-inner">
             <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
             <span className="text-xs text-slate-300 font-bold">
-              {botFillTriggered ? (
-                <span className="text-purple-300 font-black">
-                  Tempo scaduto (10s): {botCount} Bot aggiunti alla lobby!
+              {countdown !== null ? (
+                <span className="text-amber-400 font-black">Caricamento arena in corso...</span>
+              ) : realPlayerCount > 1 ? (
+                <span className="text-emerald-400 font-black">
+                  {realPlayerCount} giocatori connessi! Partenza a breve...
                 </span>
               ) : (
                 <>
-                  Attesa persone reali:{' '}
+                  Attesa avversari online:{' '}
                   <strong className="text-amber-400 text-sm font-game ml-1">
                     {secondsRemaining}s
                   </strong>{' '}
-                  <span className="text-[10px] text-slate-400">(poi entrano i bot)</span>
+                  <span className="text-[10px] text-slate-400">(poi auto-fill con Bot)</span>
                 </>
               )}
             </span>
@@ -309,7 +334,7 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
                 <Bot className="w-3.5 h-3.5" /> Bot: {botCount}
               </span>
             )}
-            <span className="text-slate-400">Totale: {players.length}/10</span>
+            <span className="text-slate-400">Totale: 10 Combattenti</span>
           </div>
         </div>
 
@@ -371,24 +396,36 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
           })}
         </div>
 
-        {/* Countdown Indicator or Cancel Button */}
+        {/* Countdown Indicator or Action Buttons */}
         {countdown !== null ? (
           <div className="flex flex-col items-center">
             <div className="text-5xl font-black text-amber-400 font-game animate-ping">
               {countdown === 0 ? 'SCONTRO!' : countdown}
             </div>
-            <p className="text-xs text-slate-300 mt-2 font-semibold">Tutti i 10 combattenti sono pronti!</p>
+            <p className="text-xs text-slate-300 mt-2 font-semibold">Tutti i 10 combattenti sono sincronizzati!</p>
           </div>
         ) : (
-          <button
-            onClick={() => {
-              sound.playClick();
-              onCancel();
-            }}
-            className="px-7 py-2.5 rounded-2xl bg-red-600/80 hover:bg-red-600 text-white font-bold text-xs border-2 border-red-400 shadow-lg active:scale-95 transition"
-          >
-            Annulla Matchmaking
-          </button>
+          <div className="flex items-center gap-3 w-full justify-center">
+            <button
+              onClick={handleStartNow}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs border-2 border-yellow-200 shadow-xl active:scale-95 transition"
+            >
+              <span>🚀 AVVIA ORA</span>
+              <span className="text-[10px] text-amber-950 font-bold bg-white/40 px-1.5 py-0.2 rounded-full">
+                (con Bot)
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                sound.playClick();
+                onCancel();
+              }}
+              className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-600 active:scale-95 transition"
+            >
+              Annulla
+            </button>
+          </div>
         )}
       </div>
     </div>

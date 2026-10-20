@@ -27,6 +27,10 @@ interface GameHUDProps {
   killFeed: KillFeedEntry[];
   poisonPhase: number;
   poisonTimer: number;
+  pingMs?: number;
+  currentZoom?: number;
+  fovMode?: 'normal' | 'wide' | 'ultra';
+  roomId?: string;
   controlsConfig?: ControlsConfig;
   onUpdateControlsConfig?: (config: ControlsConfig) => void;
   onExitMatch: () => void;
@@ -35,10 +39,18 @@ interface GameHUDProps {
 export const GameHUD: React.FC<GameHUDProps> = ({
   engine,
   aliveCount,
+  playerHp,
+  playerMaxHp,
+  playerAmmo,
   playerSuperCharge,
   powerCubes,
   killFeed,
+  poisonPhase,
   poisonTimer,
+  pingMs = 24,
+  currentZoom = 0.65,
+  fovMode = 'wide',
+  roomId = 'CS-DEFAULT',
   controlsConfig: externalConfig,
   onUpdateControlsConfig,
   onExitMatch,
@@ -486,10 +498,21 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               ctx.arc(b.x * scale, b.y * scale, 3.5, 0, Math.PI * 2);
               ctx.fill();
             } else if (!b.isInBush || engine.player.isInBush) {
-              ctx.fillStyle = b.isRemotePlayer ? '#f59e0b' : '#ef4444';
-              ctx.beginPath();
-              ctx.arc(b.x * scale, b.y * scale, 2.5, 0, Math.PI * 2);
-              ctx.fill();
+              if (b.isRemotePlayer) {
+                // Real human opponent: bright gold with outline on minimap
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.arc(b.x * scale, b.y * scale, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+              } else {
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(b.x * scale, b.y * scale, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+              }
             }
           }
         }
@@ -503,10 +526,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
   return (
     <div className="absolute inset-0 z-30 pointer-events-none flex flex-col justify-between p-2 sm:p-4 select-none touch-none overflow-hidden font-['Outfit',sans-serif]">
-      {/* TOP BAR: Alive Brawlers, Power Cubes, Poison Storm Banner, Minimap, Key Mapping Modal Button & Exit */}
-      <div className="flex items-start justify-between w-full">
-        {/* Left: Alive count & Power Cubes */}
-        <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+      {/* TOP BAR: Alive Brawlers, Power Cubes, Poison Storm Banner, FOV Controls, Ping, Minimap, Key Mapping Modal Button & Exit */}
+      <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between w-full gap-2">
+        {/* Left: Alive count, Power Cubes & Multiplayer Ping Status */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pointer-events-auto">
           {/* Alive count pill */}
           <div className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-slate-900/90 border-2 border-slate-700 shadow-xl backdrop-blur-md">
             <span className="text-sm sm:text-base">💀</span>
@@ -529,16 +552,26 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             </div>
           </div>
 
-          {/* Kill Feed (compact) */}
-          <div className="hidden md:flex flex-col gap-1 max-w-[190px]">
+          {/* Multiplayer Live Server Status & Ping Pill */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-950/85 border border-slate-700 shadow-md backdrop-blur-md text-[9px] sm:text-[10px] text-slate-300">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400" />
+            <span className="font-black text-emerald-400">{pingMs}ms</span>
+            <span className="text-slate-500">•</span>
+            <span className="font-mono text-slate-300 font-bold hidden sm:inline">{roomId}</span>
+          </div>
+
+          {/* Kill Feed (compact with platform indicators) */}
+          <div className="hidden lg:flex flex-col gap-1 max-w-[210px]">
             {killFeed.slice(-2).map((k) => (
               <div
                 key={k.id}
                 className="px-2 py-0.5 rounded-lg bg-black/60 text-[10px] text-slate-200 border-l-2 border-red-500 flex items-center gap-1 backdrop-blur-sm"
               >
-                <span className="font-bold text-amber-300 truncate max-w-[80px]">{k.killerName}</span>
-                <span className="text-red-400">⚡</span>
-                <span className="font-bold text-slate-300 truncate max-w-[80px]">{k.victimName}</span>
+                <span className="text-[9px]">{k.killerPlatform === 'pc' ? '💻' : '📱'}</span>
+                <span className="font-bold text-amber-300 truncate max-w-[70px]">{k.killerName}</span>
+                <span className="text-red-400 text-[10px]">⚡</span>
+                <span className="text-[9px]">{k.victimPlatform === 'pc' ? '💻' : '📱'}</span>
+                <span className="font-bold text-slate-300 truncate max-w-[70px]">{k.victimName}</span>
               </div>
             ))}
           </div>
@@ -554,8 +587,47 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
         </div>
 
-        {/* Right: Controls & Mapping modal trigger, Visible Keys Toggle, Minimap and Exit button */}
+        {/* Right: FOV Controls, Key Mapping Modal trigger, Visible Keys Toggle, Minimap and Exit button */}
         <div className="flex items-center gap-1.5 pointer-events-auto">
+          {/* FOV Controls Pill (Requested: "aumenta il fov del giocatore") */}
+          <div className="flex items-center bg-slate-900/90 border-2 border-indigo-400/80 rounded-xl shadow-md backdrop-blur-md overflow-hidden">
+            <button
+              onClick={() => {
+                sound.playClick();
+                const nextMode = fovMode === 'wide' ? 'ultra' : fovMode === 'ultra' ? 'normal' : 'wide';
+                engine.setFovMode(nextMode);
+              }}
+              title="Cambia Ampiezza Visuale FOV (Normale / Ampio / Ultra)"
+              className="flex items-center gap-1 px-2 py-1.5 text-[10px] sm:text-xs font-black text-indigo-300 hover:bg-indigo-600/30 transition active:scale-95"
+            >
+              <span>👁️</span>
+              <span className="hidden sm:inline font-bold">FOV:</span>
+              <span className="uppercase text-amber-300 font-black">
+                {fovMode === 'ultra' ? 'Ultra (0.5x)' : fovMode === 'normal' ? 'Normale (0.8x)' : 'Ampio (0.65x)'}
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                sound.playClick();
+                engine.adjustZoom(-0.05); // Zoom out = wider FOV
+              }}
+              title="Aumenta campo visivo (Zoom out)"
+              className="px-1.5 py-1 text-slate-300 hover:bg-slate-700/60 font-black text-xs border-l border-indigo-500/40"
+            >
+              −
+            </button>
+            <button
+              onClick={() => {
+                sound.playClick();
+                engine.adjustZoom(0.05); // Zoom in
+              }}
+              title="Riduci campo visivo (Zoom in)"
+              className="px-1.5 py-1 text-slate-300 hover:bg-slate-700/60 font-black text-xs border-l border-indigo-500/40"
+            >
+              +
+            </button>
+          </div>
+
           {/* Controls & Key Mapping Modal button */}
           <button
             onClick={() => {
@@ -566,7 +638,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border-2 border-amber-400 text-amber-300 font-black text-[10px] sm:text-xs shadow-md transition active:scale-95"
           >
             <Gamepad2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
-            <span className="hidden sm:inline">Mappatura</span>
+            <span className="hidden md:inline">Mappatura</span>
             <span className="px-1 py-0.2 rounded bg-amber-400 text-slate-950 font-black text-[8px] sm:text-[9px]">
               TAB
             </span>

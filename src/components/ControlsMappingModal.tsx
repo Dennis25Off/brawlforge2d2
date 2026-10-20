@@ -229,6 +229,82 @@ export const ControlsMappingModal: React.FC<ControlsMappingModalProps> = ({
                 </div>
               </div>
 
+              {/* FOV (Field Of View) Setting */}
+              <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-slate-900 to-indigo-950/60 border-2 border-indigo-500/80 shadow-md">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs sm:text-sm font-black text-indigo-300 flex items-center gap-1.5">
+                    <span>👁️ CAMPO VISIVO (FOV) & ZOOM</span>
+                    <span className="px-2 py-0.2 rounded-full bg-indigo-500 text-white font-extrabold text-[9px] uppercase">
+                      Espanso
+                    </span>
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-semibold hidden sm:inline">
+                    Usa anche la rotellina del mouse o il pinch su touch per zoomare in partita!
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      setConfig((c) => ({ ...c, fovMode: 'wide' }));
+                    }}
+                    className={`p-2.5 rounded-xl border-2 text-left flex flex-col gap-1 transition ${
+                      (config.fovMode || 'wide') === 'wide'
+                        ? 'bg-indigo-600/30 border-indigo-400 text-white shadow-md'
+                        : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    <span className="font-black text-xs flex items-center justify-between">
+                      🌟 Ampio (0.65x)
+                      {(config.fovMode || 'wide') === 'wide' && <Check className="w-4 h-4 text-indigo-400" />}
+                    </span>
+                    <span className="text-[10px] text-slate-400 leading-tight">
+                      Visuale bilanciata e tattica (Consigliato). Copre l'intera zona di combattimento.
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      setConfig((c) => ({ ...c, fovMode: 'ultra' }));
+                    }}
+                    className={`p-2.5 rounded-xl border-2 text-left flex flex-col gap-1 transition ${
+                      config.fovMode === 'ultra'
+                        ? 'bg-indigo-600/30 border-indigo-400 text-white shadow-md'
+                        : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    <span className="font-black text-xs flex items-center justify-between">
+                      🦅 Ultra Panoramico (0.52x)
+                      {config.fovMode === 'ultra' && <Check className="w-4 h-4 text-indigo-400" />}
+                    </span>
+                    <span className="text-[10px] text-slate-400 leading-tight">
+                      Visione aerea massima. Vedi i nemici e la nube tossica da enorme distanza.
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      setConfig((c) => ({ ...c, fovMode: 'normal' }));
+                    }}
+                    className={`p-2.5 rounded-xl border-2 text-left flex flex-col gap-1 transition ${
+                      config.fovMode === 'normal'
+                        ? 'bg-indigo-600/30 border-indigo-400 text-white shadow-md'
+                        : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    <span className="font-black text-xs flex items-center justify-between">
+                      🎯 Normale (0.82x)
+                      {config.fovMode === 'normal' && <Check className="w-4 h-4 text-indigo-400" />}
+                    </span>
+                    <span className="text-[10px] text-slate-400 leading-tight">
+                      Inquadratura classica più ravvicinata con dettagli grafici ingranditi.
+                    </span>
+                  </button>
+                </div>
+              </div>
+
               {/* Visual Keyboard Cluster */}
               <div className="p-3 sm:p-5 rounded-2xl bg-slate-900/80 border-2 border-slate-700">
                 <div className="flex items-center justify-between mb-3">

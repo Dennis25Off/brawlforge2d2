@@ -87,9 +87,11 @@ export interface PlayerProfile {
 
 export type MobileMoveMode = 'joystick' | 'dpad';
 export type PCLayoutMode = 'wasd_mouse' | 'arrows' | 'wasd_keyboard';
+export type FovMode = 'normal' | 'wide' | 'ultra';
 
 export interface ControlsConfig {
   showVisibleKeys: boolean;
+  fovMode: FovMode;
   mobileMoveMode: MobileMoveMode;
   pcLayout: PCLayoutMode;
   autoAimOnTap: boolean;
@@ -108,6 +110,7 @@ export interface ControlsConfig {
 
 export const DEFAULT_CONTROLS_CONFIG: ControlsConfig = {
   showVisibleKeys: true,
+  fovMode: 'wide',
   mobileMoveMode: 'joystick',
   pcLayout: 'wasd_mouse',
   autoAimOnTap: true,
@@ -192,7 +195,9 @@ export interface DamageNumber {
 export interface KillFeedEntry {
   id: string;
   killerName: string;
+  killerPlatform?: CrossPlayPlatform;
   victimName: string;
+  victimPlatform?: CrossPlayPlatform;
   brawlerId: BrawlerId;
   time: number;
 }

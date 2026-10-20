@@ -36,6 +36,11 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
   const [killFeed, setKillFeed] = useState<KillFeedEntry[]>([]);
   const [poisonPhase, setPoisonPhase] = useState(1);
   const [poisonTimer, setPoisonTimer] = useState(30);
+  const [pingMs, setPingMs] = useState(24);
+  const [currentZoom, setCurrentZoom] = useState(0.65);
+  const [fovMode, setFovModeState] = useState<'normal' | 'wide' | 'ultra'>(
+    profile.controlsConfig?.fovMode || 'wide'
+  );
 
   // Game over state
   const [gameOverResult, setGameOverResult] = useState<{
@@ -58,8 +63,15 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
 
     const brawlerLevel = profile.brawlers[selectedBrawlerId]?.level || 1;
 
+    // Determine self spawn index
+    const selfSpawnIndex = matchedPlayers?.find(
+      (p) => !p.isBot && (p.name === profile.username || p.id.includes(profile.username))
+    )?.spawnIndex ?? 0;
+
+    const currentRoomId = matchedPlayers?.[0]?.roomId || `CS-${Math.floor(1000 + Math.random() * 9000)}`;
+
     // Instantiate Engine
-    const engine = new GameEngine(
+    const engineInstance = new GameEngine(
       canvas,
       selectedBrawlerId,
       brawlerLevel,
@@ -148,21 +160,36 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
           setPoisonPhase(phase);
           setPoisonTimer(timeToNext);
         },
+        onPingChange: (ping) => {
+          setPingMs(ping);
+        },
+        onFovChange: (zoom, mode) => {
+          setCurrentZoom(zoom);
+          setFovModeState(mode as 'normal' | 'wide' | 'ultra');
+        },
       },
-      matchedPlayers || undefined
+      matchedPlayers || undefined,
+      currentRoomId,
+      selfSpawnIndex
     );
 
-    engineRef.current = engine;
-    setEngine(engine);
-    engine.start();
+    // Apply saved FOV mode if configured
+    if (profile.controlsConfig?.fovMode) {
+      engineInstance.setFovMode(profile.controlsConfig.fovMode);
+    }
+
+    engineRef.current = engineInstance;
+    setEngine(engineInstance);
+    engineInstance.start();
 
     return () => {
-      engine.stop();
+      engineInstance.stop();
+      engineInstance.destroy();
       engineRef.current = null;
       setEngine(null);
       window.removeEventListener('resize', handleResize);
     };
-  }, [profile.username, profile.platform, profile.brawlers, selectedBrawlerId, onUpdateProfile]);
+  }, [profile.username, profile.platform, profile.brawlers, selectedBrawlerId, matchedPlayers, onUpdateProfile]);
 
   return (
     <div className="relative w-full h-full min-h-screen bg-[#090d16] overflow-hidden select-none touch-none">
@@ -182,6 +209,10 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
           killFeed={killFeed}
           poisonPhase={poisonPhase}
           poisonTimer={poisonTimer}
+          pingMs={pingMs}
+          currentZoom={currentZoom}
+          fovMode={fovMode}
+          roomId={engine.roomId}
           controlsConfig={profile.controlsConfig}
           onUpdateControlsConfig={(cfg) => {
             onUpdateProfile((p) => ({ ...p, controlsConfig: cfg }));

@@ -17,6 +17,7 @@ export default function App() {
   const [profile, setProfile] = useState<PlayerProfile>(() => loadPlayerProfile());
   const [currentView, setCurrentView] = useState<'lobby' | 'matchmaking' | 'battle'>('lobby');
   const [matchedPlayers, setMatchedPlayers] = useState<LobbyPlayerInfo[] | null>(null);
+  const [requestedRoomId, setRequestedRoomId] = useState<string | undefined>(undefined);
 
   // Modals state
   const [showBrawlersModal, setShowBrawlersModal] = useState(false);
@@ -40,8 +41,9 @@ export default function App() {
     updateProfile((p) => ({ ...p, selectedBrawler: id }));
   };
 
-  const handleStartMatchmaking = () => {
+  const handleStartMatchmaking = (roomId?: string) => {
     setMatchedPlayers(null);
+    setRequestedRoomId(roomId);
     setCurrentView('matchmaking');
   };
 
@@ -52,6 +54,7 @@ export default function App() {
 
   const handleExitToMenu = () => {
     setMatchedPlayers(null);
+    setRequestedRoomId(undefined);
     setCurrentView('lobby');
   };
 
@@ -88,6 +91,7 @@ export default function App() {
           <MatchmakingModal
             profile={profile}
             selectedBrawlerId={profile.selectedBrawler}
+            requestedRoomId={requestedRoomId}
             onMatchReady={handleMatchReady}
             onCancel={() => setCurrentView('lobby')}
           />

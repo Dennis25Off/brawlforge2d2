@@ -13,6 +13,7 @@ import {
   Flame,
   ArrowRight,
   Gamepad2,
+  X,
 } from 'lucide-react';
 import { BrawlerId, ControlsConfig, PlayerProfile } from '../types/game';
 import { BRAWLERS } from '../data/brawlers';
@@ -23,7 +24,7 @@ import { sound } from '../utils/audio';
 
 interface LobbyProps {
   profile: PlayerProfile;
-  onStartMatchmaking: () => void;
+  onStartMatchmaking: (roomId?: string) => void;
   onOpenBrawlers: () => void;
   onOpenBoxes: () => void;
   onOpenTrophyRoad: () => void;
@@ -41,6 +42,8 @@ export const Lobby: React.FC<LobbyProps> = ({
   const [isMuted, setIsMuted] = useState(sound.getMuted());
   const [showNameModal, setShowNameModal] = useState(false);
   const [showControlsModal, setShowControlsModal] = useState(false);
+  const [showRoomModal, setShowRoomModal] = useState(false);
+  const [roomCodeInput, setRoomCodeInput] = useState('');
 
   const selectedBrawler = BRAWLERS[profile.selectedBrawler];
   const brawlerProg = profile.brawlers[profile.selectedBrawler] || { level: 1, powerPoints: 0 };
@@ -293,6 +296,19 @@ export const Lobby: React.FC<LobbyProps> = ({
             )}
           </button>
 
+          {/* Stanza Privata con Amici Button */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              setShowRoomModal(true);
+            }}
+            title="Crea o unisciti a una stanza privata con amici (Crossplay PC/Mobile)"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-2 sm:py-3 rounded-2xl bg-sky-950/80 hover:bg-sky-900 border-2 border-sky-400 text-white font-black text-[11px] sm:text-xs shadow-md active:scale-95 transition"
+          >
+            <Globe className="w-4 h-4 text-sky-400" />
+            <span>STANZA</span>
+          </button>
+
           {/* GIOCA (PLAY) Comic Button */}
           <button
             onClick={() => {
@@ -306,6 +322,93 @@ export const Lobby: React.FC<LobbyProps> = ({
           </button>
         </div>
       </footer>
+
+      {/* Friends & Custom Room Code Modal */}
+      {showRoomModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="relative w-full max-w-md rounded-3xl bg-slate-900 border-4 border-sky-400 shadow-2xl p-6 flex flex-col items-center text-white">
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowRoomModal(false);
+              }}
+              className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-sky-500/20 border-2 border-sky-400 flex items-center justify-center mb-3">
+              <Globe className="w-7 h-7 text-sky-400 animate-spin" />
+            </div>
+
+            <h3 className="font-extrabold text-xl font-game text-white tracking-wide">
+              STANZA MULTIPLAYER
+            </h3>
+            <p className="text-xs text-sky-300 text-center mt-1">
+              Sfida amici in tempo reale cross-platform da PC, smartphone o tablet!
+            </p>
+
+            <div className="w-full mt-4 space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Codice Stanza Amico
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={roomCodeInput}
+                    onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                    placeholder="es. CS-7842"
+                    maxLength={10}
+                    className="flex-1 px-3 py-2.5 rounded-xl bg-slate-950 border-2 border-slate-700 text-white font-mono font-bold tracking-wider uppercase focus:border-sky-400 outline-none text-sm placeholder:text-slate-600"
+                  />
+                  <button
+                    disabled={!roomCodeInput.trim()}
+                    onClick={() => {
+                      if (!roomCodeInput.trim()) return;
+                      sound.playClick();
+                      setShowRoomModal(false);
+                      onStartMatchmaking(roomCodeInput.trim().toUpperCase());
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-40 disabled:hover:bg-sky-500 text-slate-950 font-black text-xs transition active:scale-95"
+                  >
+                    ENTRA
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-slate-500 text-[10px] uppercase font-bold my-1 justify-center">
+                <span className="w-12 h-px bg-slate-700" />
+                <span>oppure</span>
+                <span className="w-12 h-px bg-slate-700" />
+              </div>
+
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowRoomModal(false);
+                  const generated = `CS-${Math.floor(1000 + Math.random() * 9000)}`;
+                  onStartMatchmaking(generated);
+                }}
+                className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 border-2 border-indigo-400 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg transition active:scale-95"
+              >
+                <span>✨ CREA NUOVA STANZA PRIVATA</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowRoomModal(false);
+                  onStartMatchmaking();
+                }}
+                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition active:scale-95"
+              >
+                Partita Rapida Online (Pubblica)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Change Name Modal */}
       {showNameModal && (

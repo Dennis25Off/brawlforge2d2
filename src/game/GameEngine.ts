@@ -41,6 +41,8 @@ export interface GameEngineCallbacks {
   onKillFeed: (entry: KillFeedEntry) => void;
   onPlayerHpChange: (hp: number, maxHp: number, ammo: number, superCharge: number, cubes: number) => void;
   onPoisonPhaseChange: (phase: number, timeToNext: number) => void;
+  onPingChange?: (pingMs: number) => void;
+  onFovChange?: (zoom: number, mode: string) => void;
 }
 
 export class GameEngine {
@@ -69,8 +71,17 @@ export class GameEngine {
     shrinkSpeed: 20, // pixels per second
   };
 
-  // Camera
-  public camera = { x: 0, y: 0, zoom: 1, targetX: 0, targetY: 0, shake: 0 };
+  // Camera with Expanded Tactical FOV (default wide ~0.65x instead of 1.0)
+  public camera = {
+    x: 0,
+    y: 0,
+    zoom: 0.65,
+    targetZoom: 0.65,
+    targetX: 0,
+    targetY: 0,
+    shake: 0,
+  };
+  public fovMode: 'normal' | 'wide' | 'ultra' = 'wide';
 
   // Controls state
   public moveVector = { x: 0, y: 0 };
@@ -83,13 +94,18 @@ export class GameEngine {
   private callbacks: GameEngineCallbacks;
 
   // Real-time multiplayer synchronization
-  public roomId: string = 'room_default';
+  public roomId: string = 'CS-DEFAULT';
+  public spawnIndex: number = 0;
+  public isHost: boolean = true;
+  public pingMs: number = 24;
   private broadcastChannel: BroadcastChannel | null = null;
   private multiplayerSyncTimer = 0;
   private lastProcessedDamageTime = 0;
   private pendingProjectilesToSend: any[] = [];
   private pendingDamageToSend: any[] = [];
   private pendingKillsToSend: any[] = [];
+  private pendingDestroyedBoxes: string[] = [];
+  private pendingCollectedItems: string[] = [];
   private isSyncingWithServer = false;
 
   // Natural health regeneration timer for player
@@ -97,6 +113,9 @@ export class GameEngine {
 
   // Periodic powerup respawn timer
   private powerUpRespawnTimer = 18;
+
+  // Touch pinch zoom handling
+  private touchStartDist = 0;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -106,19 +125,26 @@ export class GameEngine {
     playerPlatform: CrossPlayPlatform,
     callbacks: GameEngineCallbacks,
     matchedPlayers?: LobbyPlayerInfo[],
-    roomId?: string
+    roomId?: string,
+    spawnIndex?: number
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.callbacks = callbacks;
-    this.roomId = roomId || matchedPlayers?.[0]?.roomId || `cs_room_${Date.now()}`;
+    this.roomId = roomId || matchedPlayers?.[0]?.roomId || `CS-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // Set initial adaptive FOV (generous wide field of view)
+    const isMobileViewport = window.innerWidth < 768;
+    this.camera.targetZoom = isMobileViewport ? 0.62 : 0.68;
+    this.camera.zoom = this.camera.targetZoom;
+
     this.mapData = generateBattleRoyaleMap();
     this.obstacles = [...this.mapData.obstacles];
     this.powerBoxes = [...this.mapData.powerBoxes];
 
     // Initialize 8 tactical powerups across the arena
     this.powerUps = this.mapData.powerUpSpawns.map((s, idx) => ({
-      id: `pup_${idx}_${Date.now()}`,
+      id: `pup_${idx}`,
       type: s.type,
       x: s.x,
       y: s.y,
@@ -127,17 +153,27 @@ export class GameEngine {
       collected: false,
     }));
 
-    // Initialize 10 combatants (Player + 9 Combatants from Matchmaking: Real Players + Filled Bots)
-    const shuffledSpawns = [...this.mapData.spawnPoints].sort(() => Math.random() - 0.5);
-    const brawlerIds: BrawlerId[] = ['blaze', 'viper', 'titan', 'raven', 'harmony'];
+    // Symmetrical 10-player spawn positioning
+    // Determine player's spawn index
+    let resolvedSpawnIndex = typeof spawnIndex === 'number' ? spawnIndex : 0;
+    if (matchedPlayers && matchedPlayers.length > 0) {
+      const foundSelf = matchedPlayers.find(
+        (p) => !p.isBot && (p.name === playerUsername || p.id.includes(playerUsername))
+      );
+      if (foundSelf && typeof foundSelf.spawnIndex === 'number') {
+        resolvedSpawnIndex = foundSelf.spawnIndex;
+      }
+    }
+    this.spawnIndex = resolvedSpawnIndex;
+    this.isHost = this.spawnIndex === 0;
 
-    // 1. Setup Player
+    // 1. Setup Local Player at their exact symmetrical spawn
     const playerDef = BRAWLERS[playerBrawlerId];
     const levelMult = 1 + (playerLevel - 1) * 0.06;
     const playerHp = Math.round(playerDef.baseHp * levelMult);
-    const selfId = (matchedPlayers && matchedPlayers[0] && !matchedPlayers[0].isBot)
-      ? matchedPlayers[0].id
-      : `player_${playerUsername}_${Date.now()}`;
+    const selfSpawn = this.mapData.spawnPoints[this.spawnIndex % 10];
+    const selfId = (matchedPlayers && matchedPlayers.find((p) => !p.isBot && p.name === playerUsername)?.id) ||
+      `player_${playerUsername}_${Date.now()}`;
 
     this.player = {
       id: selfId,
@@ -145,12 +181,12 @@ export class GameEngine {
       isPlayer: true,
       platform: playerPlatform,
       brawlerId: playerBrawlerId,
-      x: shuffledSpawns[0].x,
-      y: shuffledSpawns[0].y,
+      x: selfSpawn.x,
+      y: selfSpawn.y,
       vx: 0,
       vy: 0,
       radius: 26,
-      rotation: 0,
+      rotation: Math.atan2(1200 - selfSpawn.y, 1200 - selfSpawn.x),
       hp: playerHp,
       maxHp: playerHp,
       ammo: playerDef.maxAmmo,
@@ -191,32 +227,38 @@ export class GameEngine {
     };
     this.brawlers.push(this.player);
 
-    // 2. Setup 9 Combatants (Real Players marked with isRemotePlayer: true, otherwise Bots)
-    const botNamesShuffled = [...BOT_NAMES].sort(() => Math.random() - 0.5);
-    for (let i = 1; i < 10; i++) {
-      const matchP = matchedPlayers && matchedPlayers[i] ? matchedPlayers[i] : null;
-      const bId = matchP ? matchP.brawlerId : brawlerIds[i % brawlerIds.length];
+    // 2. Setup Remaining 9 Combatants (Other Real Players + Synced Deterministic Bots)
+    const brawlerIds: BrawlerId[] = ['blaze', 'viper', 'titan', 'raven', 'harmony'];
+    for (let slot = 0; slot < 10; slot++) {
+      if (slot === this.spawnIndex) continue; // Skip local player's slot
+
+      const slotSpawn = this.mapData.spawnPoints[slot % 10];
+      const matchP = matchedPlayers?.find((p) => p.spawnIndex === slot) || matchedPlayers?.[slot];
+      const isRemote = matchP ? !matchP.isBot : false;
+
+      const botId = matchP ? matchP.id : `bot_synced_${slot}`;
+      const botName = matchP ? matchP.name : `${BOT_NAMES[slot % BOT_NAMES.length]} [BOT]`;
+      const botPlatform = matchP ? matchP.platform : BOT_PLATFORMS[slot % BOT_PLATFORMS.length];
+      const bId = matchP ? matchP.brawlerId : brawlerIds[slot % brawlerIds.length];
+
       const botDef = BRAWLERS[bId];
       const botLevel = Math.floor(Math.random() * 3) + 1;
       const bMult = 1 + (botLevel - 1) * 0.05;
       const botHp = Math.round(botDef.baseHp * bMult);
-      const botPlatform = matchP ? matchP.platform : BOT_PLATFORMS[i % BOT_PLATFORMS.length];
-      const botName = matchP ? matchP.name : botNamesShuffled[i % botNamesShuffled.length];
-      const isRemote = matchP ? !matchP.isBot : false;
 
-      const bot: BrawlerEntity = {
-        id: matchP ? matchP.id : `bot_${i}`,
+      const combatant: BrawlerEntity = {
+        id: botId,
         name: botName,
         isPlayer: false,
         isRemotePlayer: isRemote,
         platform: botPlatform,
         brawlerId: bId,
-        x: shuffledSpawns[i].x,
-        y: shuffledSpawns[i].y,
+        x: slotSpawn.x,
+        y: slotSpawn.y,
         vx: 0,
         vy: 0,
         radius: 26,
-        rotation: Math.random() * Math.PI * 2,
+        rotation: Math.atan2(1200 - slotSpawn.y, 1200 - slotSpawn.x),
         hp: botHp,
         maxHp: botHp,
         ammo: botDef.maxAmmo,
@@ -253,13 +295,59 @@ export class GameEngine {
         aiDecisionTimer: Math.random() * 2,
         aiAimAngle: 0,
       };
-      this.brawlers.push(bot);
+      this.brawlers.push(combatant);
     }
 
     this.camera.x = this.player.x;
     this.camera.y = this.player.y;
     this.callbacks.onAliveChange(10);
+
+    // Bind FOV wheel and pinch gesture handlers
+    this.canvas.addEventListener('wheel', this.handleWheel, { passive: false });
+    this.canvas.addEventListener('touchstart', this.handleTouchStart, { passive: true });
+    this.canvas.addEventListener('touchmove', this.handleTouchMove, { passive: true });
   }
+
+  // --- INTERACTIVE FOV METHODS ---
+  public setFovMode(mode: 'normal' | 'wide' | 'ultra') {
+    this.fovMode = mode;
+    if (mode === 'ultra') this.camera.targetZoom = 0.52; // Massive wide-angle tactical view
+    else if (mode === 'wide') this.camera.targetZoom = 0.65; // Balanced wide FOV (recommended)
+    else this.camera.targetZoom = 0.82; // Closer combat view
+    this.callbacks.onFovChange?.(this.camera.targetZoom, mode);
+  }
+
+  public adjustZoom(delta: number) {
+    this.camera.targetZoom = Math.max(0.46, Math.min(0.95, this.camera.targetZoom + delta));
+    this.callbacks.onFovChange?.(this.camera.targetZoom, this.fovMode);
+  }
+
+  private handleWheel = (e: WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    this.adjustZoom(delta);
+  };
+
+  private handleTouchStart = (e: TouchEvent) => {
+    if (e.touches.length === 2) {
+      this.touchStartDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  };
+
+  private handleTouchMove = (e: TouchEvent) => {
+    if (e.touches.length === 2 && this.touchStartDist > 0) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const diff = (dist - this.touchStartDist) * 0.002;
+      this.adjustZoom(diff);
+      this.touchStartDist = dist;
+    }
+  };
 
   public start() {
     this.isRunning = true;
@@ -287,6 +375,9 @@ export class GameEngine {
 
   public destroy() {
     this.stop();
+    this.canvas.removeEventListener('wheel', this.handleWheel);
+    this.canvas.removeEventListener('touchstart', this.handleTouchStart);
+    this.canvas.removeEventListener('touchmove', this.handleTouchMove);
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.close();
@@ -1060,6 +1151,7 @@ export class GameEngine {
         if (dist <= b.radius + pu.radius) {
           // Collected!
           pu.collected = true;
+          this.pendingCollectedItems.push(pu.id);
           this.applyPowerUp(b, pu.type);
           this.powerUps.splice(i, 1);
           break;
@@ -1165,6 +1257,7 @@ export class GameEngine {
 
           if (box.hp <= 0) {
             box.isDestroyed = true;
+            this.pendingDestroyedBoxes.push(box.id);
             this.spawnPowerCubes(box.x + box.width / 2, box.y + box.height / 2, box.cubesToDrop);
             sound.playExplosion();
           }
@@ -1354,6 +1447,7 @@ export class GameEngine {
           this.spawnDamageNumber(brawler.x, brawler.y - 35, '+1 CUBO ⚡', '#10b981', true);
           if (brawler.isPlayer) {
             sound.playPowerCube();
+            this.pendingCollectedItems.push(cube.id);
           }
 
           this.powerCubes.splice(i, 1);
@@ -1499,6 +1593,9 @@ export class GameEngine {
     const lerpSpeed = 8;
     this.camera.x += (this.camera.targetX - this.camera.x) * lerpSpeed * dt;
     this.camera.y += (this.camera.targetY - this.camera.y) * lerpSpeed * dt;
+
+    // Smooth FOV Zoom transition
+    this.camera.zoom += (this.camera.targetZoom - this.camera.zoom) * 8 * dt;
 
     if (this.camera.shake > 0) {
       this.camera.shake -= dt * 25;
@@ -2289,10 +2386,13 @@ export class GameEngine {
       if (typeof payload.powerCubes === 'number') target.powerCubes = payload.powerCubes;
       if (typeof payload.isAlive === 'boolean') target.isAlive = payload.isAlive;
       if (typeof payload.isMoving === 'boolean') target.isMoving = payload.isMoving;
+      if (typeof payload.walkCycle === 'number') target.walkCycle = payload.walkCycle;
+      if (payload.hitFlash) target.hitFlashTimer = 0.12;
 
       if (Array.isArray(payload.newProjectiles)) {
         for (const p of payload.newProjectiles) {
           if (!this.projectiles.some((existing) => existing.id === p.id)) {
+            const def = BRAWLERS[target.brawlerId];
             this.projectiles.push({
               id: p.id,
               ownerId: target.id,
@@ -2303,14 +2403,15 @@ export class GameEngine {
               vx: p.vx,
               vy: p.vy,
               distanceTraveled: 0,
-              maxDistance: 800,
-              damage: p.damage || 800,
-              radius: p.radius || 10,
+              maxDistance: p.isSuper ? def.superRange : def.attackRange,
+              damage: p.damage || def.attackDamage,
+              radius: p.radius || def.bulletRadius,
               piercing: p.piercing || false,
               destroysWalls: p.destroysWalls || false,
-              color: p.color || '#f97316',
-              bulletType: p.bulletType || 'bullet',
+              color: p.color || (p.isSuper ? '#eab308' : '#f97316'),
+              bulletType: p.bulletType || def.bulletType,
             });
+            sound.playShoot(p.bulletType || def.bulletType);
           }
         }
       }
@@ -2319,8 +2420,27 @@ export class GameEngine {
 
   private updateMultiplayerSync(dt: number) {
     this.multiplayerSyncTimer += dt;
-    if (this.multiplayerSyncTimer < 0.08) return;
+    if (this.multiplayerSyncTimer < 0.065) return; // ~15 updates per second
     this.multiplayerSyncTimer = 0;
+
+    // If host, package alive bots to keep them authoritative for non-hosts
+    const botStates = this.isHost
+      ? this.brawlers
+          .filter((b) => !b.isPlayer && !b.isRemotePlayer)
+          .map((b) => ({
+            id: b.id,
+            x: Math.round(b.x),
+            y: Math.round(b.y),
+            rotation: Number(b.rotation.toFixed(3)),
+            hp: Math.round(b.hp),
+            maxHp: b.maxHp,
+            ammo: b.ammo,
+            powerCubes: b.powerCubes,
+            isAlive: b.isAlive,
+            isMoving: b.isMoving,
+            walkCycle: Number(b.walkCycle.toFixed(2)),
+          }))
+      : [];
 
     const localPayload = {
       roomId: this.roomId,
@@ -2337,9 +2457,15 @@ export class GameEngine {
       powerCubes: this.player.powerCubes,
       isAlive: this.player.isAlive,
       isMoving: this.player.isMoving,
+      walkCycle: Number(this.player.walkCycle.toFixed(2)),
+      hitFlash: this.player.hitFlashTimer > 0,
       newProjectiles: this.pendingProjectilesToSend.splice(0),
       damageEvents: this.pendingDamageToSend.splice(0),
       killEvents: this.pendingKillsToSend.splice(0),
+      destroyedBoxes: this.pendingDestroyedBoxes.splice(0),
+      collectedItems: this.pendingCollectedItems.splice(0),
+      isHost: this.isHost,
+      botStates,
     };
 
     if (this.broadcastChannel) {
@@ -2353,6 +2479,8 @@ export class GameEngine {
 
     if (!this.isSyncingWithServer) {
       this.isSyncingWithServer = true;
+      const reqStart = performance.now();
+
       fetch('/api/match/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2363,6 +2491,11 @@ export class GameEngine {
           this.isSyncingWithServer = false;
           if (!data || !data.success) return;
 
+          // Latency ping calculation
+          this.pingMs = Math.round(performance.now() - reqStart);
+          this.callbacks.onPingChange?.(this.pingMs);
+
+          // 1. Sync remote human players
           if (Array.isArray(data.otherPlayers)) {
             for (const remote of data.otherPlayers) {
               this.handleRemoteState({
@@ -2379,43 +2512,104 @@ export class GameEngine {
                 powerCubes: remote.powerCubes,
                 isAlive: remote.isAlive,
                 isMoving: remote.isMoving,
+                walkCycle: remote.walkCycle,
+                hitFlash: remote.hitFlash,
               });
             }
           }
 
+          // 2. For non-hosts: interpolate synced bots from host
+          if (!this.isHost && Array.isArray(data.syncedBots)) {
+            for (const synced of data.syncedBots) {
+              const bot = this.brawlers.find((b) => b.id === synced.id);
+              if (bot) {
+                bot.x += (synced.x - bot.x) * 0.45;
+                bot.y += (synced.y - bot.y) * 0.45;
+                bot.rotation = synced.rotation;
+                bot.hp = synced.hp;
+                bot.maxHp = synced.maxHp;
+                bot.ammo = synced.ammo;
+                bot.powerCubes = synced.powerCubes;
+                bot.isAlive = synced.isAlive;
+                bot.isMoving = synced.isMoving;
+                bot.walkCycle = synced.walkCycle;
+              }
+            }
+          }
+
+          // 3. Sync remote projectiles
           if (Array.isArray(data.remoteProjectiles)) {
             for (const p of data.remoteProjectiles) {
               if (p.ownerId !== this.player.id && !this.projectiles.some((pr) => pr.id === p.id)) {
+                const owner = this.brawlers.find((b) => b.id === p.ownerId);
+                const bId = (p.brawlerId || owner?.brawlerId || 'blaze') as BrawlerId;
+                const def = BRAWLERS[bId];
                 this.projectiles.push({
                   id: p.id,
                   ownerId: p.ownerId,
                   isSuper: p.isSuper || false,
-                  brawlerId: 'blaze',
+                  brawlerId: bId,
                   x: p.x,
                   y: p.y,
                   vx: p.vx,
                   vy: p.vy,
                   distanceTraveled: 0,
-                  maxDistance: 800,
-                  damage: p.damage || 800,
-                  radius: p.radius || 10,
-                  piercing: false,
-                  destroysWalls: false,
-                  color: p.color || '#f97316',
-                  bulletType: p.bulletType || 'bullet',
+                  maxDistance: p.isSuper ? def.superRange : def.attackRange,
+                  damage: p.damage || def.attackDamage,
+                  radius: p.radius || def.bulletRadius,
+                  piercing: p.piercing || false,
+                  destroysWalls: p.destroysWalls || false,
+                  color: p.color || (p.isSuper ? '#eab308' : '#f97316'),
+                  bulletType: p.bulletType || def.bulletType,
                 });
+                sound.playShoot(p.bulletType || def.bulletType);
               }
             }
           }
 
+          // 4. Sync destroyed boxes across clients
+          if (Array.isArray(data.destroyedBoxes)) {
+            for (const boxId of data.destroyedBoxes) {
+              const box = this.powerBoxes.find((b) => b.id === boxId);
+              if (box && !box.isDestroyed) {
+                box.isDestroyed = true;
+                box.hp = 0;
+                this.spawnPowerCubes(box.x + box.width / 2, box.y + box.height / 2, box.cubesToDrop);
+                sound.playExplosion();
+              }
+            }
+          }
+
+          // 5. Sync collected items across clients
+          if (Array.isArray(data.collectedItems)) {
+            for (const itemId of data.collectedItems) {
+              const pIdx = this.powerUps.findIndex((pu) => pu.id === itemId);
+              if (pIdx !== -1) {
+                this.powerUps.splice(pIdx, 1);
+              }
+              const cIdx = this.powerCubes.findIndex((c) => c.id === itemId);
+              if (cIdx !== -1) {
+                this.powerCubes.splice(cIdx, 1);
+              }
+            }
+          }
+
+          // 6. Relevant damage applied to player or local entities
           if (Array.isArray(data.relevantDamage)) {
             for (const dmg of data.relevantDamage) {
               if (dmg.timestamp > this.lastProcessedDamageTime) {
                 this.lastProcessedDamageTime = dmg.timestamp;
-                this.applyDamage(this.player, dmg.damage, dmg.attackerId, false, '#ef4444');
+                const target = this.brawlers.find((b) => b.id === dmg.targetId);
+                if (target) {
+                  this.applyDamage(target, dmg.damage, dmg.attackerId, false, dmg.color || '#ef4444');
+                }
               }
             }
           }
+
+          // 7. Update alive count
+          const liveCount = this.brawlers.filter((b) => b.isAlive).length;
+          this.callbacks.onAliveChange(liveCount);
         })
         .catch(() => {
           this.isSyncingWithServer = false;

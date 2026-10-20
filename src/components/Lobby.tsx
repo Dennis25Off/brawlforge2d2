@@ -315,9 +315,9 @@ export const Lobby: React.FC<LobbyProps> = ({
               sound.playClick();
               onStartMatchmaking();
             }}
-            className="flex-[1.5] ml-auto sm:flex-none sm:w-56 py-2 sm:py-3.5 rounded-2xl sm:rounded-3xl brawl-btn-yellow border-3 sm:border-4 border-yellow-200 text-slate-950 font-black font-game text-base sm:text-xl flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(234,179,8,0.4)] transition active:scale-95 tracking-wide text-white"
+            className="flex-[1.5] sm:flex-none sm:w-56 py-2 sm:py-3.5 rounded-2xl sm:rounded-3xl brawl-btn-yellow border-3 sm:border-4 border-yellow-200 text-slate-950 font-black font-game text-base sm:text-xl flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(234,179,8,0.4)] transition active:scale-95 tracking-wide text-white"
           >
-            <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current text-slate-950" />
+            <Play className="ml-auto w-4 h-4 sm:w-5 sm:h-5 fill-current text-slate-950" />
             <span className="text-slate-950">GIOCA!</span>
           </button>
         </div>

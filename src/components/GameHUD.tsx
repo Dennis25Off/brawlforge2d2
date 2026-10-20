@@ -577,16 +577,6 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
         </div>
 
-        {/* Center: Poison Gas warning banner */}
-        <div className="flex flex-col items-center pointer-events-auto">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-2xl bg-emerald-900/90 border-2 border-emerald-400 shadow-xl backdrop-blur-md">
-            <Flame className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
-            <span className="font-bold text-[11px] sm:text-xs text-white font-game tracking-wide">
-              GAS: <span className="text-yellow-300">{poisonTimer}s</span>
-            </span>
-          </div>
-        </div>
-
         {/* Right: FOV Controls, Key Mapping Modal trigger, Visible Keys Toggle, Minimap and Exit button */}
         <div className="flex items-center gap-1.5 pointer-events-auto">
           {/* FOV Controls Pill (Requested: "aumenta il fov del giocatore") */}
@@ -627,38 +617,6 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               +
             </button>
           </div>
-
-          {/* Controls & Key Mapping Modal button */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              setShowMappingModal(true);
-            }}
-            title="Mappatura Comandi & Tasti (TAB)"
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border-2 border-amber-400 text-amber-300 font-black text-[10px] sm:text-xs shadow-md transition active:scale-95"
-          >
-            <Gamepad2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
-            <span className="hidden md:inline">Mappatura</span>
-            <span className="px-1 py-0.2 rounded bg-amber-400 text-slate-950 font-black text-[8px] sm:text-[9px]">
-              TAB
-            </span>
-          </button>
-
-          {/* Quick toggle visible keys overlay button */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              updateControls({ ...controls, showVisibleKeys: !controls.showVisibleKeys });
-            }}
-            title={controls.showVisibleKeys ? 'Nascondi Tasti a Schermo' : 'Mostra Tasti a Schermo'}
-            className={`p-1.5 rounded-xl border transition active:scale-95 ${
-              controls.showVisibleKeys
-                ? 'bg-sky-500/20 border-sky-400 text-sky-300'
-                : 'bg-slate-800/80 border-slate-600 text-slate-400'
-            }`}
-          >
-            {controls.showVisibleKeys ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-          </button>
 
           {/* Minimap */}
           <div className="rounded-xl border border-slate-700 bg-slate-900/90 p-0.5 shadow-lg backdrop-blur-md">

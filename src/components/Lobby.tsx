@@ -267,7 +267,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-2 sm:py-3 rounded-2xl bg-indigo-950/80 hover:bg-indigo-900 border-2 border-indigo-400 text-white font-black text-[11px] sm:text-xs shadow-md active:scale-95 transition"
           >
             <Users className="w-4 h-4 text-indigo-400" />
-            <span>BRAWLER</span>
+            <span>CLASHERS</span>
           </button>
 
           {/* Casse Shop Button */}

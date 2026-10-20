@@ -111,7 +111,7 @@ export const BrawlerSelectModal: React.FC<BrawlerSelectModalProps> = ({
                         <span>{b.name}</span>
                         {isActive && (
                           <span className="px-1.5 py-0.2 rounded bg-emerald-500 text-slate-950 font-black text-[9px]">
-                            ATTIVO
+                            SELEZIONATO
                           </span>
                         )}
                       </div>

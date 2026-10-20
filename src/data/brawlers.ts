@@ -4,7 +4,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
   blaze: {
     id: 'blaze',
     name: 'Blaze',
-    title: 'Il Pistogliero Rapido',
+    title: 'Pistole Come Piume',
     role: 'Tiratore Scelto',
     description: 'Spara raffiche precise di proiettili a lunghissima gittata. La sua Super demolisce ripari e nemici.',
     color: '#ef4444',
@@ -12,14 +12,14 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     badgeColor: '#ef4444',
     
     baseHp: 4200,
-    speed: 2.6, // Adjusted slightly slower for tactical cartoon feel
+    speed: 2.7, // Adjusted slightly slower for tactical cartoon feel
     reloadTime: 1.5,
     maxAmmo: 3,
-    attackRange: 520,
-    attackSpread: 0.08,
-    attackDamage: 300, // 6 x 520 = 3120 damage if all hit!
+    attackRange: 550,
+    attackSpread: 0.1,
+    attackDamage: 250, // 6 x 250 = 1500 di danno se tutti i colpi vanno a segno
     bulletCount: 6,
-    bulletSpeed: 15,
+    bulletSpeed: 12,
     bulletRadius: 6,
     bulletType: 'bullet',
     superChargePerHit: 9, // ~12 hits to charge Super
@@ -27,8 +27,8 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     superName: 'Raffica Devastante',
     superDesc: 'Scatena 12 colpi pesanti perforanti che distruggono le pareti e trapassano ogni nemico.',
     superRange: 600,
-    superRadius: 9,
-    superDamage: 440,
+    superRadius: 10,
+    superDamage: 400,
     superType: 'barrage',
 
     passiveName: 'Stivali Celesti',
@@ -51,14 +51,14 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     themeGradient: 'from-purple-500 via-indigo-600 to-blue-700',
     badgeColor: '#a855f7',
     
-    baseHp: 5600,
+    baseHp: 5500,
     speed: 2.35,
     reloadTime: 1.6,
     maxAmmo: 3,
     attackRange: 420,
     attackSpread: 0.38, // Wide shotgun spread
-    attackDamage: 220, // 5 pellets x 540 = 2700 max close range
-    bulletCount: 5,
+    attackDamage: 200, // 10 pallottole x 200 = 2000 a distanza ravvicinata
+    bulletCount: 10,
     bulletSpeed: 13,
     bulletRadius: 7,
     bulletType: 'shotgun',
@@ -66,9 +66,9 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     
     superName: 'Super Calibro',
     superDesc: 'Un colpo devastante che spazza via coperture, nemici e respinge violentemente all\'indietro.',
-    superRange: 460,
+    superRange: 500,
     superRadius: 12,
-    superDamage: 520,
+    superDamage: 400,
     superType: 'blast',
 
     passiveName: 'Cerotto Vitale',
@@ -84,20 +84,20 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
   titan: {
     id: 'titan',
     name: 'Titan',
-    title: 'Il Lottatore Supremo',
+    title: 'Il Gigante',
     role: 'Colosso',
     description: 'Una montagna di muscoli indistruttibile. Salta in alto e atterra con la violenza di un meteorite.',
     color: '#3b82f6',
     themeGradient: 'from-blue-500 via-sky-600 to-cyan-500',
     badgeColor: '#3b82f6',
     
-    baseHp: 8600,
+    baseHp: 6000,
     speed: 2.4,
-    reloadTime: 1.1,
+    reloadTime: 1,
     maxAmmo: 3,
-    attackRange: 260,
+    attackRange: 100,
     attackSpread: 0.15,
-    attackDamage: 480, // 4 punches x 680 = 2720
+    attackDamage: 350, // 4 pugni x 350 = 1400 max
     bulletCount: 4,
     bulletSpeed: 16,
     bulletRadius: 10,
@@ -108,7 +108,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     superDesc: 'Salta nei cieli e si schianta al suolo, provocando 3.000 danni ad area e distruggendo ogni riparo.',
     superRange: 550,
     superRadius: 120, // Huge AoE crater
-    superDamage: 2500,
+    superDamage: 2000,
     superType: 'leap',
 
     passiveName: 'Furia Bruciante',
@@ -123,7 +123,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
 
   raven: {
     id: 'raven',
-    name: 'Raven',
+    name: 'Vorona',
     title: 'L\'Assassino Tossico',
     role: 'Assassino Tossico',
     description: 'Lancia pugnali impregnati di veleno che bloccano la rigenerazione nemica e ne erodono la vita.',
@@ -131,15 +131,15 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     themeGradient: 'from-amber-400 via-yellow-500 to-orange-600',
     badgeColor: '#eab308',
     
-    baseHp: 3800,
-    speed: 2.7,
-    reloadTime: 1.3,
+    baseHp: 3000,
+    speed: 2.8,
+    reloadTime: 1.4,
     maxAmmo: 3,
     attackRange: 500,
-    attackSpread: 0.28,
-    attackDamage: 420, // 3 daggers + poison damage over time
+    attackSpread: 0.3,
+    attackDamage: 250, // 3 daggers + poison damage over time
     bulletCount: 3,
-    bulletSpeed: 17,
+    bulletSpeed: 15,
     bulletRadius: 5,
     bulletType: 'poison',
     superChargePerHit: 10,
@@ -148,7 +148,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     superDesc: 'Spicca il volo lanciando una tempesta di 14 pugnali sia al decollo che all\'atterraggio.',
     superRange: 520,
     superRadius: 7,
-    superDamage: 380,
+    superDamage: 400,
     superType: 'daggers',
 
     passiveName: 'Tossina Indebolente',
@@ -163,21 +163,21 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
 
   harmony: {
     id: 'harmony',
-    name: 'Harmony',
-    title: 'Il Trovatore Sonico',
-    role: 'Supporto Sonico',
+    name: 'Poco',
+    title: '....Spotify portatile',
+    role: 'Supporto',
     description: 'Emette travolgenti onde musicali che attraversano i nemici. La sua Super ripristina istantaneamente la salute.',
     color: '#10b981',
     themeGradient: 'from-emerald-400 via-teal-500 to-green-600',
     badgeColor: '#10b981',
     
-    baseHp: 5800,
-    speed: 2.35,
-    reloadTime: 1.5,
+    baseHp: 4600,
+    speed: 2.2,
+    reloadTime: 1.6,
     maxAmmo: 3,
     attackRange: 450,
     attackSpread: 0.55, // Very wide penetrating acoustic cone
-    attackDamage: 900, // Pierces all enemies
+    attackDamage: 400, // Pierces all enemies
     bulletCount: 1,
     bulletSpeed: 12,
     bulletRadius: 28, // Wide sonic crescent

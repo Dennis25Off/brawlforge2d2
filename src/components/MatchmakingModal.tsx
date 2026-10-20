@@ -275,7 +275,7 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
           <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950 border border-indigo-500 text-indigo-300 text-xs font-bold">
               <Globe className="w-4 h-4 text-sky-400 animate-spin" />
-              <span>CROSS-PLAY ATTIVO • MULTIPLAYER REALE</span>
+              <span>CROSS-PLAY ATTIVO</span>
             </div>
 
             {/* Room Code with 1-click Copy */}
@@ -296,9 +296,9 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
             {countdown !== null ? (
               <span className="text-amber-400 animate-bounce">SCONTRO SINCRONIZZATO!</span>
             ) : realPlayerCount > 1 ? (
-              <span className="text-emerald-400">GIOCATORE REALE TROVATO!</span>
+              <span className="text-emerald-400">GIOCATORI TROVATI!</span>
             ) : (
-              'RICERCA GIOCATORI CROSS-PLATFORM...'
+              'RICERCA GIOCATORI'
             )}
           </h2>
 

@@ -186,7 +186,7 @@ export const Lobby: React.FC<LobbyProps> = ({
         <div className="relative flex flex-col items-center justify-center">
           {/* Animated Glow Halo */}
           <div
-            className="w-36 h-36 sm:w-48 sm:h-48 rounded-full blur-2xl opacity-35 animate-pulse pointer-events-none absolute"
+            className="w-32 h-32 sm:w-48 sm:h-48 rounded-full blur-2xl opacity-35 animate-pulse pointer-events-none absolute"
             style={{ backgroundColor: selectedBrawler.color }}
           />
 
@@ -230,7 +230,7 @@ export const Lobby: React.FC<LobbyProps> = ({
               }}
               className="mt-1.5 px-3 py-0.5 rounded-full bg-indigo-600/60 hover:bg-indigo-600 border border-indigo-400 text-[10px] font-extrabold text-indigo-200 transition active:scale-95"
             >
-              CAMBIA BRAWLER
+              CLICCA PER CAMBIARE
             </button>
           </div>
         </div>

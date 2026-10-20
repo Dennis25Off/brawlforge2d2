@@ -157,31 +157,6 @@ export const Lobby: React.FC<LobbyProps> = ({
             <span className="font-extrabold text-[10px] sm:text-xs text-emerald-300">{profile.gems}</span>
           </div>
 
-          {/* Controls & Key Mapping Modal button */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              setShowControlsModal(true);
-            }}
-            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border-2 border-amber-400 text-amber-300 font-black text-[10px] sm:text-xs shadow-md transition active:scale-95"
-            title="Mappatura Comandi (WASD & Touch)"
-          >
-            <Gamepad2 className="w-3.5 h-3.5 text-amber-400" />
-            <span>Comandi</span>
-          </button>
-
-          {/* Audio toggle */}
-          <button
-            onClick={toggleSound}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-600 text-slate-300 transition active:scale-95"
-            title={isMuted ? 'Riattiva Audio' : 'Disattiva Audio'}
-          >
-            {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-sky-400" />}
-          </button>
-
-          {/* PWA Fullscreen & Install Button */}
-          <PWAInstallButton />
-
           {/* Nuovo bottone Impostazioni (Sotto a PWAInstallButton) */}
           <button
             onClick={() => {

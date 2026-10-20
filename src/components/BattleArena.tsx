@@ -24,6 +24,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
+  const [engine, setEngine] = useState<GameEngine | null>(null);
 
   // HUD State synced from GameEngine
   const [aliveCount, setAliveCount] = useState(10);
@@ -152,10 +153,13 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     );
 
     engineRef.current = engine;
+    setEngine(engine);
     engine.start();
 
     return () => {
       engine.stop();
+      engineRef.current = null;
+      setEngine(null);
       window.removeEventListener('resize', handleResize);
     };
   }, [profile.username, profile.platform, profile.brawlers, selectedBrawlerId, onUpdateProfile]);
@@ -163,12 +167,12 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
   return (
     <div className="relative w-full h-full min-h-screen bg-[#090d16] overflow-hidden select-none touch-none">
       {/* 60FPS Game Canvas */}
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block z-10" />
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block z-0" />
 
       {/* Interactive HUD & Controls */}
-      {engineRef.current && (
+      {engine && (
         <GameHUD
-          engine={engineRef.current}
+          engine={engine}
           aliveCount={aliveCount}
           playerHp={playerHp}
           playerMaxHp={playerMaxHp}

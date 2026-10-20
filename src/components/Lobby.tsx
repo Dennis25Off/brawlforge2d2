@@ -157,11 +157,11 @@ export const Lobby: React.FC<LobbyProps> = ({
               sound.playClick();
               setShowControlsModal(true);
             }}
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-amber-400/80 text-amber-300 font-bold text-[10px] sm:text-xs shadow-sm transition active:scale-95"
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border-2 border-amber-400 text-amber-300 font-black text-[10px] sm:text-xs shadow-md transition active:scale-95"
             title="Mappatura Comandi (WASD & Touch)"
           >
             <Gamepad2 className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden md:inline">Comandi</span>
+            <span>Comandi</span>
           </button>
 
           {/* Audio toggle */}

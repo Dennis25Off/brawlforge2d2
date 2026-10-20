@@ -502,7 +502,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   }, [engine]);
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2 sm:p-4 select-none touch-none overflow-hidden font-['Outfit',sans-serif]">
+    <div className="absolute inset-0 z-30 pointer-events-none flex flex-col justify-between p-2 sm:p-4 select-none touch-none overflow-hidden font-['Outfit',sans-serif]">
       {/* TOP BAR: Alive Brawlers, Power Cubes, Poison Storm Banner, Minimap, Key Mapping Modal Button & Exit */}
       <div className="flex items-start justify-between w-full">
         {/* Left: Alive count & Power Cubes */}
@@ -650,48 +650,120 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               {controls.showVisibleKeys && (
                 <>
                   {/* W Key (Top) */}
-                  <div
-                    className={`absolute top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md border font-black text-[10px] shadow transition-all pointer-events-none ${
+                  <button
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDpadDirection('up', true);
+                    }}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDpadDirection('up', false);
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      setDpadDirection('up', true);
+                    }}
+                    onMouseUp={(e) => {
+                      e.stopPropagation();
+                      setDpadDirection('up', false);
+                    }}
+                    className={`absolute top-0.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-lg border-2 font-black text-[10px] sm:text-xs shadow-md transition-all pointer-events-auto ${
                       activeKeys.w || dpadActive.up
-                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80'
-                        : 'bg-slate-900/90 border-sky-500/60 text-sky-300 opacity-90'
+                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80 ring-2 ring-white'
+                        : 'bg-slate-900/95 border-sky-400/80 text-sky-200 hover:bg-slate-800'
                     }`}
                   >
                     W ▲
-                  </div>
+                  </button>
 
                   {/* S Key (Bottom) */}
-                  <div
-                    className={`absolute bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md border font-black text-[10px] shadow transition-all pointer-events-none ${
+                  <button
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDpadDirection('down', true);
+                    }}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDpadDirection('down', false);
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      setDpadDirection('down', true);
+                    }}
+                    onMouseUp={(e) => {
+                      e.stopPropagation();
+                      setDpadDirection('down', false);
+                    }}
+                    className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-lg border-2 font-black text-[10px] sm:text-xs shadow-md transition-all pointer-events-auto ${
                       activeKeys.s || dpadActive.down
-                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80'
-                        : 'bg-slate-900/90 border-sky-500/60 text-sky-300 opacity-90'
+                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80 ring-2 ring-white'
+                        : 'bg-slate-900/95 border-sky-400/80 text-sky-200 hover:bg-slate-800'
                     }`}
                   >
                     S ▼
-                  </div>
+                  </button>
 
                   {/* A Key (Left) */}
-                  <div
-                    className={`absolute left-1 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded-md border font-black text-[10px] shadow transition-all pointer-events-none ${
+                  <button
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDpadDirection('left', true);
+                    }}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDpadDirection('left', false);
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      setDpadDirection('left', true);
+                    }}
+                    onMouseUp={(e) => {
+                      e.stopPropagation();
+                      setDpadDirection('left', false);
+                    }}
+                    className={`absolute left-0.5 top-1/2 -translate-y-1/2 px-2 py-1 rounded-lg border-2 font-black text-[10px] sm:text-xs shadow-md transition-all pointer-events-auto ${
                       activeKeys.a || dpadActive.left
-                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80'
-                        : 'bg-slate-900/90 border-sky-500/60 text-sky-300 opacity-90'
+                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80 ring-2 ring-white'
+                        : 'bg-slate-900/95 border-sky-400/80 text-sky-200 hover:bg-slate-800'
                     }`}
                   >
                     ◄ A
-                  </div>
+                  </button>
 
                   {/* D Key (Right) */}
-                  <div
-                    className={`absolute right-1 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded-md border font-black text-[10px] shadow transition-all pointer-events-none ${
+                  <button
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDpadDirection('right', true);
+                    }}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDpadDirection('right', false);
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      setDpadDirection('right', true);
+                    }}
+                    onMouseUp={(e) => {
+                      e.stopPropagation();
+                      setDpadDirection('right', false);
+                    }}
+                    className={`absolute right-0.5 top-1/2 -translate-y-1/2 px-2 py-1 rounded-lg border-2 font-black text-[10px] sm:text-xs shadow-md transition-all pointer-events-auto ${
                       activeKeys.d || dpadActive.right
-                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80'
-                        : 'bg-slate-900/90 border-sky-500/60 text-sky-300 opacity-90'
+                        ? 'bg-sky-400 border-white text-slate-950 scale-125 shadow-sky-400/80 ring-2 ring-white'
+                        : 'bg-slate-900/95 border-sky-400/80 text-sky-200 hover:bg-slate-800'
                     }`}
                   >
                     D ►
-                  </div>
+                  </button>
                 </>
               )}
 
@@ -873,20 +945,49 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             )}
           </div>
 
-          {/* Desktop keys interactive helper pill */}
+          {/* Active controls & key mapping live helper pill - visible across all devices */}
           {controls.showVisibleKeys && (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-950/80 border border-slate-700/80 shadow-md backdrop-blur-sm text-[10px]">
-              <span className={activeKeys.w || activeKeys.a || activeKeys.s || activeKeys.d ? 'text-sky-300 font-bold' : 'text-slate-400'}>
+            <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-xl bg-slate-950/90 border border-slate-700 shadow-lg backdrop-blur-md text-[9px] sm:text-[10px] pointer-events-auto max-w-[340px] sm:max-w-none">
+              <span
+                className={`px-1.5 py-0.5 rounded font-black transition-all ${
+                  activeKeys.w || activeKeys.a || activeKeys.s || activeKeys.d || dpadActive.up || dpadActive.down || dpadActive.left || dpadActive.right
+                    ? 'bg-sky-400 text-slate-950 scale-105 shadow-md shadow-sky-400/50'
+                    : 'text-sky-300 bg-sky-950/60 border border-sky-600/40'
+                }`}
+              >
                 WASD: Muovi
               </span>
-              <span className="text-slate-600">•</span>
-              <span className={activeKeys.leftClick || activeKeys.f ? 'text-red-300 font-bold' : 'text-slate-400'}>
-                Click SX / F: Attacco
+              <span
+                onClick={() => engine.firePlayerNormalAttack()}
+                className={`cursor-pointer px-1.5 py-0.5 rounded font-black transition-all active:scale-95 ${
+                  activeKeys.leftClick || activeKeys.f
+                    ? 'bg-red-500 text-white scale-105 shadow-md shadow-red-500/50'
+                    : 'text-red-300 bg-red-950/60 border border-red-600/40 hover:bg-red-900/60'
+                }`}
+              >
+                Click SX / F: Fuoco
               </span>
-              <span className="text-slate-600">•</span>
-              <span className={activeKeys.space || activeKeys.r ? 'text-yellow-300 font-bold' : 'text-slate-400'}>
+              <span
+                onClick={() => isSuperReady && engine.firePlayerSuper()}
+                className={`cursor-pointer px-1.5 py-0.5 rounded font-black transition-all active:scale-95 ${
+                  activeKeys.space || activeKeys.r
+                    ? 'bg-yellow-300 text-slate-950 scale-105 shadow-md shadow-yellow-400/50'
+                    : isSuperReady
+                    ? 'text-yellow-300 bg-amber-950/80 border border-yellow-400 animate-pulse'
+                    : 'text-slate-400 bg-slate-900/60 border border-slate-700'
+                }`}
+              >
                 Spazio / R: Super
               </span>
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowMappingModal(true);
+                }}
+                className="text-amber-300 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-500/60 px-1.5 py-0.5 rounded font-black transition active:scale-95"
+              >
+                TAB: Mappa
+              </button>
             </div>
           )}
         </div>

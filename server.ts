@@ -217,31 +217,42 @@ app.post('/api/matchmaking/join', (req, res) => {
     activeMatches.set(targetRoom.id, targetRoom);
   }
 
-  let player = targetRoom.players.find((p) => p.id === id);
+  // 🛠️ NUOVO CODICE D'EMERGENZA:
+let player = targetRoom.players.find((p) => p.id === id);
+let finalId = id;
 
-  if (!player) {
-    const spawnIndex = targetRoom.players.length;
-    player = {
-      id,
-      name: name || 'Brawler',
-      brawlerId: brawlerId || 'blaze',
-      trophies: Number(trophies) || 0,
-      platform: platform || 'mobile',
-      joinedAt: now,
-      lastPing: now,
-      assignedRoomId: targetRoom.id,
-      spawnIndex,
-      isBot: false,
-    };
-    targetRoom.players.push(player);
-    activeQueue.push(player);
-  } else {
-    player.lastPing = now;
-    player.name = name;
-    player.brawlerId = brawlerId;
-    player.trophies = trophies;
-    player.platform = platform;
-  }
+// TRUCCO: Se l'ID esiste già nella stanza, ma la richiesta arriva da una sessione diversa, 
+// generiamo un ID unico sul momento per il secondo giocatore!
+if (player) {
+  // Se i nomi sono diversi o se la stanza ha già un giocatore con questo ID, creiamo un ID unico
+  finalId = `${id}_${Math.random().toString(36).substring(2, 7)}`;
+  player = undefined; // Forziamo il server a crearlo come NUOVO giocatore
+}
+
+if (!player) {
+  const spawnIndex = targetRoom.players.length;
+  player = {
+    id: finalId, // <--- Usiamo l'ID unico generato dal server
+    name: name || `Brawler_${spawnIndex}`,
+    brawlerId: brawlerId || 'blaze',
+    trophies: Number(trophies) || 0,
+    platform: platform || 'mobile',
+    joinedAt: now,
+    lastPing: now,
+    assignedRoomId: targetRoom.id,
+    spawnIndex,
+    isBot: false,
+  };
+  targetRoom.players.push(player);
+  activeQueue.push(player);
+} else {
+  player.lastPing = now;
+  player.name = name;
+  player.brawlerId = brawlerId;
+  player.trophies = trophies;
+  player.platform = platform;
+}
+
 
   // Se 2 o piu giocatori reali entrano in lobby, parte il countdown sincronizzato
   if (targetRoom.players.length >= 2 && targetRoom.status === 'waiting') {

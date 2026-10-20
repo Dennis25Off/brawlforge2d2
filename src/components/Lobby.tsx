@@ -196,6 +196,36 @@ export const Lobby: React.FC<LobbyProps> = ({
         </div>
       </header>
 
+      {/* Rendering condizionale dei Modal */}
+      {showSettingsModal && (
+        <SettingsModal
+          onClose={() => setShowSettingsModal(false)}
+          openControls={() => {
+            setShowSettingsModal(false);
+            setShowControlsModal(true);
+          }}
+          openAudio={() => {
+            // Sfrutta la funzione toggleSound già esistente nella Lobby
+            toggleSound();
+          }}
+        />
+      )}
+
+      {showControlsModal && (
+        <ControlsMappingModal onClose={() => setShowControlsModal(false)} />
+      )}
+
+      {showNameModal && (
+        <ChangeNameModal
+          currentName={profile.username}
+          onSave={handleSaveName}
+          onClose={() => setShowNameModal(false)}
+        />
+      )}
+    </div>
+  );
+};
+
       {/* CENTER STAGE: Selected Brawler Showcase with 3D-style Podium (Mobile Optimized) */}
       <main className="relative z-8 flex-1 flex flex-col items-center justify-center my-auto min-h-0">
         <div className="relative flex flex-col items-center justify-center">

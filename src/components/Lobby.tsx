@@ -237,24 +237,9 @@ export const Lobby: React.FC<LobbyProps> = ({
             <span className="text-emerald-400 hidden sm:inline">• BATTLE ROYALE</span>
           </div>
 
-          <div className="text-[9px] sm:text-[10px] text-slate-400 flex items-center gap-2">
-            <button
-              onClick={() => {
-                sound.playClick();
-                setShowControlsModal(true);
-              }}
-              className="flex items-center gap-1 text-amber-300 hover:text-amber-200 font-bold hover:underline"
-            >
-              <Gamepad2 className="w-3 h-3 text-amber-400" />
-              <span>Mappatura Tasti</span>
-            </button>
-            <span className="text-slate-600 hidden sm:inline">•</span>
-            <div className="flex items-center gap-1">
               <Globe className="w-2.5 h-2.5 text-sky-400" />
               <span>Cross-play Attivo</span>
             </div>
-          </div>
-        </div>
 
         {/* Main Controls Row: BRAWLER, CASSE, and GIOCA Button */}
         <div className="flex items-center gap-2 w-full">

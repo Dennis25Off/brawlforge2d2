@@ -912,25 +912,6 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               </button>
             </div>
           )}
-
-          {/* Quick toggle between Joystick and D-Pad mode button */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              updateControls({
-                ...controls,
-                mobileMoveMode: controls.mobileMoveMode === 'joystick' ? 'dpad' : 'joystick',
-              });
-            }}
-            title={controls.mobileMoveMode === 'joystick' ? 'Passa a Tasti D-Pad' : 'Passa a Joystick Fluido'}
-            className="p-1.5 rounded-xl bg-slate-900/90 border border-slate-700 text-sky-400 hover:text-white shadow-md transition active:scale-90"
-          >
-            {controls.mobileMoveMode === 'joystick' ? (
-              <span className="text-xs">🕹️</span>
-            ) : (
-              <span className="text-xs">🔘</span>
-            )}
-          </button>
         </div>
 
         {/* CENTER: Active Gadget Button & Visual Keyboard Guide */}

@@ -302,20 +302,6 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
             )}
           </h2>
 
-          {/* Players Breakdown */}
-          <div className="flex items-center gap-4 mt-2 text-xs font-bold">
-            <span className="text-emerald-400 flex items-center gap-1">
-              <UserCheck className="w-3.5 h-3.5" /> Reali: {realPlayerCount}
-            </span>
-            {botCount > 0 && (
-              <span className="text-purple-400 flex items-center gap-1">
-                <Bot className="w-3.5 h-3.5" /> Bot: {botCount}
-              </span>
-            )}
-            <span className="text-slate-400">Totale: 10 Combattenti</span>
-          </div>
-        </div>
-
         {/* 10 Player Slots Grid */}
         <div className="w-full grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-5">
           {Array.from({ length: 10 }).map((_, i) => {

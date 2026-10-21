@@ -237,7 +237,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             <span className="text-emerald-400 hidden sm:inline"> - BATTLE ROYALE</span>
           </div>
               <Globe className="w-2.5 h-2.5 text-sky-400" />
-              <span>Cross-play Attivo</span>
+              <strong className="text-white">Cross-Play Attivo</strong>
             </div>
 
         {/* Main Controls Row: BRAWLER, CASSE, and GIOCA Button */}

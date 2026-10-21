@@ -234,9 +234,8 @@ export const Lobby: React.FC<LobbyProps> = ({
           <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-slate-300">
             <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <strong className="text-white">SOPRAVVIVENZA SOLO</strong>
-            <span className="text-emerald-400 hidden sm:inline">• BATTLE ROYALE</span>
+            <span className="text-emerald-400 hidden sm:inline"> - BATTLE ROYALE</span>
           </div>
-
               <Globe className="w-2.5 h-2.5 text-sky-400" />
               <span>Cross-play Attivo</span>
             </div>

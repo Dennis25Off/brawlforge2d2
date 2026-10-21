@@ -35,10 +35,10 @@ export function generateBattleRoyaleMap(): MapData {
   obstacles.push({ x: cx + 110, y: cy + 110, width: 70, height: 70, type: 'stone', destructible: false });
 
   // Center destructible wooden crates & stone barricades
-  obstacles.push({ x: cx - 25, y: cy - 160, width: 50, height: 50, type: 'wood_box', destructible: true, hp: 1200 });
-  obstacles.push({ x: cx - 25, y: cy + 110, width: 50, height: 50, type: 'wood_box', destructible: true, hp: 1200 });
-  obstacles.push({ x: cx - 160, y: cy - 25, width: 50, height: 50, type: 'wood_box', destructible: true, hp: 1200 });
-  obstacles.push({ x: cx + 110, y: cy - 25, width: 50, height: 50, type: 'wood_box', destructible: true, hp: 1200 });
+  obstacles.push({ x: cx - 25, y: cy - 160, width: 50, height: 50, type: 'wood_box', destructible: true, hp: 400 });
+  obstacles.push({ x: cx - 25, y: cy + 110, width: 50, height: 50, type: 'wood_box', destructible: true, hp: 400 });
+  obstacles.push({ x: cx - 160, y: cy - 25, width: 50, height: 50, type: 'wood_box', destructible: true, hp: 400 });
+  obstacles.push({ x: cx + 110, y: cy - 25, width: 50, height: 50, type: 'wood_box', destructible: true, hp: 400 });
 
   // Center Power Boxes (Rich loot zone)
   powerBoxes.push({ id: 'box_c1', x: cx - 60, y: cy - 60, width: 44, height: 44, hp: 2500, maxHp: 2500, isDestroyed: false, cubesToDrop: 2 });
@@ -66,7 +66,7 @@ export function generateBattleRoyaleMap(): MapData {
     obstacles.push({ x: q.ox - 100, y: q.oy - 40, width: 40, height: 140, type: 'stone', destructible: false });
 
     // Destructible barricades
-    obstacles.push({ x: q.ox + 20, y: q.oy + 40, width: 60, height: 60, type: 'wood_box', destructible: true, hp: 1200 });
+    obstacles.push({ x: q.ox + 20, y: q.oy + 40, width: 60, height: 60, type: 'wood_box', destructible: true, hp: 400 });
 
     // Water pool
     obstacles.push({ x: q.ox + 120, y: q.oy - 70, width: 100, height: 130, type: 'water', destructible: false });

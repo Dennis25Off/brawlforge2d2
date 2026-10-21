@@ -69,9 +69,10 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
       <div className="relative w-full max-w-md rounded-3xl bg-slate-900 border-4 border-amber-500 shadow-2xl p-6 flex flex-col items-center text-center">
-        {/* Placement Rank badge */}
+        
+        {/* Riquadro Rank spostato ALL'INTERNO del corpo del modal senza -mt-12 */}
         <div
-          className={`px-6 py-2 rounded-2xl border-4 font-black font-game text-xl sm:text-2xl shadow-xl -mt-12 mb-4 ${
+          className={`w-full px-6 py-3 rounded-2xl border-4 font-black font-game text-xl sm:text-2xl shadow-xl mb-6 ${
             isVictory
               ? 'bg-amber-400 border-yellow-200 text-slate-950 animate-bounce'
               : placement <= 3
@@ -81,12 +82,6 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         >
           {isVictory ? 'VITTORIA REALE! #1' : `POSIZIONE #${placement}`}
         </div>
-
-        <p className="text-sm text-slate-300 font-semibold mb-6">
-          {isVictory
-            ? 'Sei l\'ultimo sopravvissuto dell\'Arena Clash Stars!'
-            : 'Ottima partita! Continua a lottare per scalare la classifica.'}
-        </p>
 
         {/* Stats Grid: Trophies, Tokens, Kills, Power Cubes */}
         <div className="w-full grid grid-cols-2 gap-3 mb-6">

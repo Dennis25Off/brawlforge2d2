@@ -953,7 +953,7 @@ export class GameEngine {
             maxDistance: def.superRange,
             damage: superDamage,
             radius: def.superRadius,
-            piercing: true,
+            piercing: false,
             destroysWalls: true,
             color: '#ef4444',
             bulletType: 'bullet',

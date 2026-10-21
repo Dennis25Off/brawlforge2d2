@@ -1203,8 +1203,6 @@ export class GameEngine {
         continue;
       }
 
-      // ... codice precedente dei proiettili
-
             // Wall collision
       let hitWall = false;
       for (let wIdx = this.obstacles.length - 1; wIdx >= 0; wIdx--) {
@@ -1218,17 +1216,17 @@ export class GameEngine {
           p.y - p.radius < obs.y + obs.height
         ) {
           
-          // MODIFICA SUPER DISTRUTTIVE 💥
-          // Controlla se il colpo distrugge i muri nativamente OPPURE se è la Super di Blaze, Viper o Titan
+          // CONDIZIONE DELLE SUPER DISTRUTTIVE 💥
+          // Ora controlliamo i tipi esatti generati dalle Super di Blaze, Viper e Titan
           const isDestructiveSuper = p.isSuper && (
-            p.bulletType === 'bullet' ||   // Blaze
-            p.bulletType === 'shotgun' ||  // Viper
-            p.bulletType === 'punch'       // Titan
+            p.bulletType === 'barrage' || // La Super di Blaze
+            p.bulletType === 'blast'   || // La Super di Viper
+            p.bulletType === 'leap'       // La Super di Titan (Meteora)
           );
 
           if ((p.destroysWalls || isDestructiveSuper) && obs.destructible) {
             this.spawnParticles(obs.x + obs.width / 2, obs.y + obs.height / 2, '#78350f', 12);
-            this.obstacles.splice(wIdx, 1); // Rimuove il muro distruttibile dalla mappa
+            this.obstacles.splice(wIdx, 1); // Abbate e rimuove il muro
             sound.playExplosion();
           } else if (obs.destructible && obs.hp) {
             obs.hp -= p.damage;
@@ -1245,12 +1243,12 @@ export class GameEngine {
             break;
           }
 
-          // Se è una Super distruttiva (Blaze, Viper, Titan), NON deve fermarsi contro il muro che ha appena rotto!
-          if (isDestructiveSuper) {
-            continue; // Salta il blocco e continua a perforare
+          // Se è una Super distruttiva, non deve essere fermata dal muro appena rimosso
+          if (isDestructiveSuper || p.destroysWalls) {
+            continue; 
           }
 
-          // Comportamento standard per tutti gli altri colpi normali non perforanti
+          // Comportamento standard per tutti gli altri colpi normali
           if (!p.piercing) {
             hitWall = true;
             this.spawnParticles(p.x, p.y, p.color, 4);
@@ -1263,10 +1261,6 @@ export class GameEngine {
         this.projectiles.splice(i, 1);
         continue;
       }
-
-      // ... eventuale codice successivo (es. collisioni player)
-
-
 
       // Box collision
       let hitBox = false;

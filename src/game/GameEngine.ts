@@ -1227,7 +1227,8 @@ export class GameEngine {
             }
           }
 
-          if (!p.piercing) {
+                    // Se il proiettile NON è perforante, OPPURE se è di tipo 'sonic' (Harmony), si ferma contro il muro
+          if (!p.piercing || p.bulletType === 'sonic') {
             hitWall = true;
             this.spawnParticles(p.x, p.y, p.color, 4);
             break;
@@ -1239,6 +1240,7 @@ export class GameEngine {
         this.projectiles.splice(i, 1);
         continue;
       }
+
 
       // Box collision
       let hitBox = false;

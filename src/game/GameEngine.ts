@@ -1227,9 +1227,9 @@ export class GameEngine {
             }
           }
 
-          // MODIFICA AGGIORNATA FORZATA 🌟
-          // Se è di tipo sonic, ignoriamo completamente la proprietà p.piercing e attiviamo il blocco
-          if (p.bulletType === 'sonic') {
+                    // MODIFICA SUPER HARMONY 🌟
+          // Se è di tipo sonic, lo blocchiamo contro il muro SOLO SE non è una Super (!p.isSuper)
+          if (p.bulletType === 'sonic' && !p.isSuper) {
             hitWall = true;
             this.spawnParticles(p.x, p.y, p.color, 4);
             break;
@@ -1241,8 +1241,7 @@ export class GameEngine {
             this.spawnParticles(p.x, p.y, p.color, 4);
             break;
           }
-        }
-      }
+
 
       if (hitWall) {
         this.projectiles.splice(i, 1);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Gamepad2, Volume2, X, Maximize2, Minimize2 } from 'lucide-react';
+import { Settings, Gamepad2, Volume2, VolumeX, X, Maximize2, Minimize2 } from 'lucide-react'; // 1. Aggiunto VolumeX
 import { PWAInstallButton } from './PWAInstallButton';
+import { sound } from '../utils/audio'; // 2. Importata l'utility audio
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -10,6 +11,8 @@ interface SettingsModalProps {
 
 export function SettingsModal({ onClose, openControls, openAudio }: SettingsModalProps) {
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+  // 3. Stato locale per monitorare se l'audio è disattivato recuperando il valore iniziale
+  const [isMuted, setIsMuted] = useState(sound.getMuted());
 
   // Monitora se l'utente cambia lo stato del fullscreen (es. premendo F11)
   useEffect(() => {
@@ -30,6 +33,12 @@ export function SettingsModal({ onClose, openControls, openAudio }: SettingsModa
     }
   };
 
+  // 4. Gestione del click sull'audio combinata con l'aggiornamento grafico del modal
+  const handleAudioClick = () => {
+    openAudio(); // Esegue la logica passata dalla Lobby
+    setIsMuted(sound.getMuted()); // Sincronizza istantaneamente l'interfaccia del modal
+  };
+
   return (
     /* Sfondo oscurato ad alta opacità con sfocatura, coerente con lo stile */
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
@@ -48,7 +57,7 @@ export function SettingsModal({ onClose, openControls, openAudio }: SettingsModa
               <h2 className="text-lg font-black font-game text-white tracking-wide uppercase">
                 IMPOSTAZIONI
               </h2>
-              <p className="text-[11px] text-indigo-300 font-bold">Configura il tuo gioco</p>
+              <p className="text-[11px] text-indigo-300 font-bold">Configura le tue impostazioni di gioco</p>
             </div>
           </div>
 
@@ -71,21 +80,29 @@ export function SettingsModal({ onClose, openControls, openAudio }: SettingsModa
           >
             <div className="flex items-center gap-2.5">
               <Gamepad2 className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-              <span className="font-extrabold text-sm tracking-wide">Mappatura Comandi</span>
+              <span className="font-extrabold text-sm tracking-wide">Gestione Comandi</span>
             </div>
             <span className="text-indigo-300 text-xs font-bold">WASD & Touch</span>
           </button>
 
-          {/* Opzione 2: Opzioni Audio */}
+          {/* Opzione 2: Opzioni Audio (Dinamica) */}
           <button 
-            onClick={openAudio}
+            onClick={handleAudioClick}
             className="flex items-center justify-between w-full bg-slate-950/60 hover:bg-indigo-950 p-3 rounded-2xl border-2 border-indigo-500/30 hover:border-indigo-400 text-left transition-all active:scale-95 group"
           >
             <div className="flex items-center gap-2.5">
-              <Volume2 className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-              <span className="font-extrabold text-sm tracking-wide">Opzioni Audio</span>
+              {/* Mostra l'icona corretta in base allo stato mutato */}
+              {isMuted ? (
+                <VolumeX className="w-4 h-4 text-red-400 group-hover:scale-110 transition-transform" />
+              ) : (
+                <Volume2 className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              )}
+              <span className="font-extrabold text-sm tracking-wide">Attiva/Disattiva Audio</span>
             </div>
-            <span className="text-indigo-300 text-xs font-bold">Attiva/Disattiva</span>
+            {/* Cambia il testo laterale in base allo stato dell'audio */}
+            <span className={`text-xs font-bold ${isMuted ? 'text-red-400' : 'text-emerald-400'}`}>
+              {isMuted ? 'Disattivato' : 'Attivato'}
+            </span>
           </button>
 
           {/* Opzione 3: Schermo Intero */}
@@ -104,7 +121,7 @@ export function SettingsModal({ onClose, openControls, openAudio }: SettingsModa
             <span className="text-indigo-300 text-xs font-bold">{isFullscreen ? 'Disattiva' : 'Attiva'}</span>
           </button>
 
-          {/* Opzione 4: PWA Install Button (Eredita lo stile di riga indaco tramite selettore nativo) */}
+          {/* Opzione 4: PWA Install Button */}
           <div className="w-full *.w-full *.justify-between *.bg-slate-950\/60 *.hover:bg-indigo-950 *.p-3 *.rounded-2xl *.border-2 *.border-indigo-500\/30 *.hover:border-indigo-400 *.text-left *.transition-all *.flex *.items-center *.active:scale-95 font-extrabold text-sm tracking-wide text-white">
             <PWAInstallButton />
           </div>

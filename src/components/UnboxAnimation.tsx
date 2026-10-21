@@ -22,7 +22,7 @@ export const UnboxAnimation: React.FC<UnboxAnimationProps> = ({ boxType, items, 
   const [currentIndex, setCurrentIndex] = useState(-1); // -1 = Box closed, >= 0 = showing items
   const [isRevealed, setIsRevealed] = useState(false);
 
-  const boxName = boxType === 'mega' ? 'MEGA CASSA' : boxType === 'big' ? 'CASSA GRANDE' : 'CASSA BRAWL';
+  const boxName = boxType === 'mega' ? 'CRAZY CASSA' : boxType === 'big' ? 'CASSA MEDIA' : 'CASSA CLASH';
   const boxThemeColor =
     boxType === 'mega'
       ? 'from-red-600 via-amber-500 to-indigo-600'

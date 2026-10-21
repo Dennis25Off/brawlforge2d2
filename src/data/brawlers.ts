@@ -177,7 +177,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     maxAmmo: 3,
     attackRange: 450,
     attackSpread: 0.55, // Very wide penetrating acoustic cone
-    attackDamage: 400, // Pierces all enemies
+    attackDamage: 320, // Pierces all enemies
     bulletCount: 1,
     bulletSpeed: 12,
     bulletRadius: 28, // Wide sonic crescent

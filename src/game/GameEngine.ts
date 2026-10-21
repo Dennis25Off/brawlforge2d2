@@ -1204,6 +1204,7 @@ export class GameEngine {
       }
 
       // Wall collision
+      // Wall collision
       let hitWall = false;
       for (let wIdx = this.obstacles.length - 1; wIdx >= 0; wIdx--) {
         const obs = this.obstacles[wIdx];
@@ -1227,8 +1228,16 @@ export class GameEngine {
             }
           }
 
-                    // Se il proiettile NON è perforante, OPPURE se è di tipo 'sonic' (Harmony), si ferma contro il muro
-          if (!p.piercing || p.bulletType === 'sonic') {
+          // MODIFICA AGGIORNATA FORZATA 🌟
+          // Se è di tipo sonic, ignoriamo completamente la proprietà p.piercing e attiviamo il blocco
+          if (p.bulletType === 'sonic') {
+            hitWall = true;
+            this.spawnParticles(p.x, p.y, p.color, 4);
+            break;
+          }
+
+          // Comportamento standard per tutti gli altri colpi
+          if (!p.piercing) {
             hitWall = true;
             this.spawnParticles(p.x, p.y, p.color, 4);
             break;

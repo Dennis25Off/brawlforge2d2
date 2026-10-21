@@ -302,28 +302,6 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
             )}
           </h2>
 
-          {/* Real-time Status Banner */}
-          <div className="mt-2 flex items-center gap-2 px-4 py-1.5 rounded-xl bg-slate-950 border-2 border-slate-700 shadow-inner">
-            <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
-            <span className="text-xs text-slate-300 font-bold">
-              {countdown !== null ? (
-                <span className="text-amber-400 font-black">Caricamento arena in corso...</span>
-              ) : realPlayerCount > 1 ? (
-                <span className="text-emerald-400 font-black">
-                  {realPlayerCount} giocatori connessi! Partenza a breve...
-                </span>
-              ) : (
-                <>
-                  Attesa avversari online:{' '}
-                  <strong className="text-amber-400 text-sm font-game ml-1">
-                    {secondsRemaining}s
-                  </strong>{' '}
-                  <span className="text-[10px] text-slate-400">(poi auto-fill con Bot)</span>
-                </>
-              )}
-            </span>
-          </div>
-
           {/* Players Breakdown */}
           <div className="flex items-center gap-4 mt-2 text-xs font-bold">
             <span className="text-emerald-400 flex items-center gap-1">

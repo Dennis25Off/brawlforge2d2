@@ -1250,7 +1250,7 @@ export class GameEngine {
             continue; // La Super di Harmony salta tutto e trapassa
           }
 
-          // Se è una Super confermata distruttiva, evita che il proiettile venga cancellato
+          // Se e' una Super confermata distruttiva, evita che il proiettile venga cancellato
           if (isDestructiveSuper || p.destroysWalls) {
             continue; 
           }

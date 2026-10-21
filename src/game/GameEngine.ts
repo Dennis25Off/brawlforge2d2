@@ -1203,6 +1203,8 @@ export class GameEngine {
         continue;
       }
 
+      // ... codice precedente dei proiettili
+
       // Wall collision
       let hitWall = false;
       for (let wIdx = this.obstacles.length - 1; wIdx >= 0; wIdx--) {
@@ -1227,7 +1229,6 @@ export class GameEngine {
             }
           }
 
-                    // MODIFICA SUPER HARMONY 🌟
           // Se è di tipo sonic, lo blocchiamo contro il muro SOLO SE non è una Super (!p.isSuper)
           if (p.bulletType === 'sonic' && !p.isSuper) {
             hitWall = true;
@@ -1241,12 +1242,16 @@ export class GameEngine {
             this.spawnParticles(p.x, p.y, p.color, 4);
             break;
           }
-
+        } // <-- Chiude l'if delle coordinate geometriche
+      } // <-- Chiude il ciclo for dei muri (wIdx)
 
       if (hitWall) {
         this.projectiles.splice(i, 1);
         continue;
       }
+
+      // ... eventuale codice successivo (es. collisioni player)
+
 
 
       // Box collision

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Gamepad2, Volume2, X, Maximize2, Minimize2 } from 'lucide-react';
-import { PWAInstallButton } from './PWAInstallButton'; // Spostato qui l'import
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -31,51 +31,67 @@ export function SettingsModal({ onClose, openControls, openAudio }: SettingsModa
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-zinc-900 text-white p-6 rounded-xl w-85 max-w-sm relative border border-zinc-800 shadow-2xl">
+    /* Sfondo oscurato ad alta opacità con sfocatura, coerente con lo stile */
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+      
+      {/* Contenitore con lo stile identico a ChangeNameModal */}
+      <div className="relative w-full max-w-sm rounded-3xl bg-gradient-to-b from-slate-900 to-indigo-950 border-4 border-indigo-500/80 shadow-[0_0_50px_rgba(99,102,241,0.5)] p-5 text-white">
         
-        {/* Pulsante di chiusura (X) */}
-        <button onClick={onClose} className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors">
-          <X className="w-5 h-5" />
-        </button>
+        {/* Header stilizzato */}
+        <div className="flex items-center justify-between pb-3 border-b border-indigo-800/60 mb-4">
+          <div className="flex items-center gap-2">
+            {/* Cornice icona indaco */}
+            <div className="p-2 rounded-xl bg-indigo-600 border border-indigo-400">
+              <Settings className="w-5 h-5 text-white animate-[spin_10s_linear_infinite]" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black font-game text-white tracking-wide uppercase">
+                IMPOSTAZIONI
+              </h2>
+              <p className="text-[11px] text-indigo-300 font-bold">Configura il tuo gioco</p>
+            </div>
+          </div>
 
-        {/* Intestazione */}
-        <div className="flex items-center gap-2 mb-6">
-          <Settings className="w-5 h-5 text-amber-400 animate-[spin_8s_linear_infinite]" />
-          <h2 className="text-xl font-bold tracking-wide">Impostazioni</h2>
+          {/* Tasto chiusura coordinato */}
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 active:scale-95 transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Lista Opzioni */}
+        {/* Lista Opzioni con bottoni stilizzati per integrarsi con lo stile scuro/indaco */}
         <div className="flex flex-col gap-3">
           
           {/* Opzione 1: Mappatura Comandi */}
           <button 
             onClick={openControls}
-            className="flex items-center justify-between w-full bg-zinc-800/60 hover:bg-zinc-800 p-3 rounded-lg border border-zinc-700/50 hover:border-zinc-600 text-left transition-all group"
+            className="flex items-center justify-between w-full bg-slate-950/60 hover:bg-indigo-950 p-3 rounded-2xl border-2 border-indigo-500/30 hover:border-indigo-400 text-left transition-all active:scale-95 group"
           >
             <div className="flex items-center gap-2.5">
               <Gamepad2 className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-sm">Mappatura Comandi</span>
+              <span className="font-extrabold text-sm tracking-wide">Mappatura Comandi</span>
             </div>
-            <span className="text-zinc-500 text-xs">WASD & Touch</span>
+            <span className="text-indigo-300 text-xs font-bold">WASD & Touch</span>
           </button>
 
           {/* Opzione 2: Opzioni Audio */}
           <button 
             onClick={openAudio}
-            className="flex items-center justify-between w-full bg-zinc-800/60 hover:bg-zinc-800 p-3 rounded-lg border border-zinc-700/50 hover:border-zinc-600 text-left transition-all group"
+            className="flex items-center justify-between w-full bg-slate-950/60 hover:bg-indigo-950 p-3 rounded-2xl border-2 border-indigo-500/30 hover:border-indigo-400 text-left transition-all active:scale-95 group"
           >
             <div className="flex items-center gap-2.5">
               <Volume2 className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-sm">Opzioni Audio</span>
+              <span className="font-extrabold text-sm tracking-wide">Opzioni Audio</span>
             </div>
-            <span className="text-zinc-500 text-xs">Attiva/Disattiva</span>
+            <span className="text-indigo-300 text-xs font-bold">Attiva/Disattiva</span>
           </button>
 
-          {/* Opzione 3: Schermo Intero (Fullscreen) */}
+          {/* Opzione 3: Schermo Intero */}
           <button 
             onClick={toggleFullscreen}
-            className="flex items-center justify-between w-full bg-zinc-800/60 hover:bg-zinc-800 p-3 rounded-lg border border-zinc-700/50 hover:border-zinc-600 text-left transition-all group"
+            className="flex items-center justify-between w-full bg-slate-950/60 hover:bg-indigo-950 p-3 rounded-2xl border-2 border-indigo-500/30 hover:border-indigo-400 text-left transition-all active:scale-95 group"
           >
             <div className="flex items-center gap-2.5">
               {isFullscreen ? (
@@ -83,13 +99,13 @@ export function SettingsModal({ onClose, openControls, openAudio }: SettingsModa
               ) : (
                 <Maximize2 className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
               )}
-              <span className="font-medium text-sm">Schermo Intero</span>
+              <span className="font-extrabold text-sm tracking-wide">Schermo Intero</span>
             </div>
-            <span className="text-zinc-500 text-xs">{isFullscreen ? 'Disattiva' : 'Attiva'}</span>
+            <span className="text-indigo-300 text-xs font-bold">{isFullscreen ? 'Disattiva' : 'Attiva'}</span>
           </button>
 
-          {/* Opzione 4: Download / Installa App (Rendiamo il tuo componente un elemento della lista) */}
-          <div className="w-full *.w-full *.justify-between *.bg-zinc-800\/60 *.hover:bg-zinc-800 *.p-3 *.rounded-lg *.border *.border-zinc-700\/50 *.text-left *.transition-all">
+          {/* Opzione 4: PWA Install Button (Eredita lo stile di riga indaco tramite selettore nativo) */}
+          <div className="w-full *.w-full *.justify-between *.bg-slate-950\/60 *.hover:bg-indigo-950 *.p-3 *.rounded-2xl *.border-2 *.border-indigo-500\/30 *.hover:border-indigo-400 *.text-left *.transition-all *.flex *.items-center *.active:scale-95 font-extrabold text-sm tracking-wide text-white">
             <PWAInstallButton />
           </div>
 

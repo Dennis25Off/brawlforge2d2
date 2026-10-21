@@ -1203,7 +1203,7 @@ export class GameEngine {
         continue;
       }
 
-            // Wall collision
+      // Wall collision
       let hitWall = false;
       for (let wIdx = this.obstacles.length - 1; wIdx >= 0; wIdx--) {
         const obs = this.obstacles[wIdx];
@@ -1216,17 +1216,17 @@ export class GameEngine {
           p.y - p.radius < obs.y + obs.height
         ) {
           
-          // CONDIZIONE DELLE SUPER DISTRUTTIVE 💥
-          // Ora controlliamo i tipi esatti generati dalle Super di Blaze, Viper e Titan
+          // CONDIZIONE DELLE SUPER DISTRUTTIVE AGGIORNATA 💥
+          // Ora leggiamo correttamente dal campo p.superType scoperti dall'analisi!
           const isDestructiveSuper = p.isSuper && (
-            p.bulletType === 'barrage' || // La Super di Blaze
-            p.bulletType === 'blast'   || // La Super di Viper
-            p.bulletType === 'leap'       // La Super di Titan (Meteora)
+            p.superType === 'barrage' || // La Super di Blaze
+            p.superType === 'blast'   || // La Super di Viper
+            p.superType === 'leap'       // La Super di Titan (Meteora)
           );
 
           if ((p.destroysWalls || isDestructiveSuper) && obs.destructible) {
             this.spawnParticles(obs.x + obs.width / 2, obs.y + obs.height / 2, '#78350f', 12);
-            this.obstacles.splice(wIdx, 1); // Abbate e rimuove il muro
+            this.obstacles.splice(wIdx, 1); // Rimuove e distrugge il blocco di muro
             sound.playExplosion();
           } else if (obs.destructible && obs.hp) {
             obs.hp -= p.damage;
@@ -1237,13 +1237,15 @@ export class GameEngine {
           }
 
           // Se è di tipo sonic (Harmony), si ferma contro il muro SOLO SE non è una Super
-          if (p.bulletType === 'sonic' && !p.isSuper) {
+          // Controlliamo sia bulletType che superType per sicurezza su Harmony
+          const isSonic = p.bulletType === 'sonic' || p.superType === 'heal_wave';
+          if (isSonic && !p.isSuper) {
             hitWall = true;
             this.spawnParticles(p.x, p.y, p.color, 4);
             break;
           }
 
-          // Se è una Super distruttiva, non deve essere fermata dal muro appena rimosso
+          // Se abbiamo confermato che si tratta di una Super distruttiva, non fermare il proiettile
           if (isDestructiveSuper || p.destroysWalls) {
             continue; 
           }

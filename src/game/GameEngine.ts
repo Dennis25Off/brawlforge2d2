@@ -1216,19 +1216,19 @@ export class GameEngine {
           p.y - p.radius < obs.y + obs.height
         ) {
           
-          // 1. SE IL PROIETTILE ABBATTE I MURI NATIVAMENTE (Blaze e Viper Super)
-          if (p.destroysWalls && obs.destructible) {
+          // 1. IL SUPER OVERRIDE DELLE SUPER DISTRUTTIVE 💥
+          // Se il proiettile distrugge i muri (Super di Blaze/Viper), ELIMINIAMO il controllo "obs.destructible"
+          if (p.destroysWalls) {
             this.spawnParticles(obs.x + obs.width / 2, obs.y + obs.height / 2, '#78350f', 12);
-            this.obstacles.splice(wIdx, 1); // Rimuove istantaneamente il muro dalla mappa
+            this.obstacles.splice(wIdx, 1); // Rimuove il blocco di pietra indistruttibile dalla mappa
             sound.playExplosion();
             
-            // Se è perforante, ignoriamo il blocco e continuiamo a controllare gli altri muri
+            // Essendo colpi perforanti (piercing), indichiamo al proiettile di proseguire la sua corsa
             if (p.piercing) {
-              // NON eseguiamo hitWall = true e NON facciamo break, così il proiettile resta vivo!
               continue; 
             }
           } 
-          // Gestione danni progressivi ai muri distruttibili per colpi normali
+          // Comportamento per i colpi normali: loro richiedono OBBLIGATORIAMENTE che il muro sia destructible
           else if (obs.destructible && obs.hp) {
             obs.hp -= p.damage;
             if (obs.hp <= 0) {
@@ -1237,7 +1237,7 @@ export class GameEngine {
             }
           }
 
-          // 2. GESTIONE SPECIALE HARMONY / POCO (Il colpo base si ferma, la Super trapassa)
+          // 2. GESTIONE SPECIALE HARMONY / POCO
           const isSonic = p.bulletType === 'sonic' || p.superType === 'heal_wave' || p.bulletType === 'heal_wave';
           if (isSonic) {
             if (!p.isSuper) {
@@ -1245,10 +1245,10 @@ export class GameEngine {
               this.spawnParticles(p.x, p.y, p.color, 4);
               break;
             }
-            continue; // La Super di Harmony salta il blocco d'impatto e attraversa il muro
+            continue; // La Super di Harmony passa oltre
           }
 
-          // 3. SE IL PROIETTILE NON È PERFORANTE E NON HA ABBATTUTO IL MURO, SI INFRANGE
+          // 3. SE IL COLPO NON È UNA SUPER DISTRUTTIVA E NON È PERFORANTE, SI INFRANGE CONTRO LA PIETRA
           if (!p.piercing && !p.destroysWalls) {
             hitWall = true;
             this.spawnParticles(p.x, p.y, p.color, 4);
@@ -1257,12 +1257,11 @@ export class GameEngine {
         }
       }
 
-      // Se il colpo ha toccato un muro invalicabile e non era un colpo distruttivo/perforante, viene rimosso
+      // Se il colpo normale ha toccato la pietra senza poterla rompere, svanisce
       if (hitWall) {
         this.projectiles.splice(i, 1);
         continue;
       }
-
 
 
       // Box collision

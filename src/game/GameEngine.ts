@@ -1205,7 +1205,7 @@ export class GameEngine {
 
       // ... codice precedente dei proiettili
 
-      // Wall collision
+            // Wall collision
       let hitWall = false;
       for (let wIdx = this.obstacles.length - 1; wIdx >= 0; wIdx--) {
         const obs = this.obstacles[wIdx];
@@ -1217,9 +1217,18 @@ export class GameEngine {
           p.y + p.radius > obs.y &&
           p.y - p.radius < obs.y + obs.height
         ) {
-          if (p.destroysWalls && obs.destructible) {
+          
+          // MODIFICA SUPER DISTRUTTIVE 💥
+          // Controlla se il colpo distrugge i muri nativamente OPPURE se è la Super di Blaze, Viper o Titan
+          const isDestructiveSuper = p.isSuper && (
+            p.bulletType === 'bullet' ||   // Blaze
+            p.bulletType === 'shotgun' ||  // Viper
+            p.bulletType === 'punch'       // Titan
+          );
+
+          if ((p.destroysWalls || isDestructiveSuper) && obs.destructible) {
             this.spawnParticles(obs.x + obs.width / 2, obs.y + obs.height / 2, '#78350f', 12);
-            this.obstacles.splice(wIdx, 1);
+            this.obstacles.splice(wIdx, 1); // Rimuove il muro distruttibile dalla mappa
             sound.playExplosion();
           } else if (obs.destructible && obs.hp) {
             obs.hp -= p.damage;
@@ -1229,21 +1238,26 @@ export class GameEngine {
             }
           }
 
-          // Se è di tipo sonic, lo blocchiamo contro il muro SOLO SE non è una Super (!p.isSuper)
+          // Se è di tipo sonic (Harmony), si ferma contro il muro SOLO SE non è una Super
           if (p.bulletType === 'sonic' && !p.isSuper) {
             hitWall = true;
             this.spawnParticles(p.x, p.y, p.color, 4);
             break;
           }
 
-          // Comportamento standard per tutti gli altri colpi
+          // Se è una Super distruttiva (Blaze, Viper, Titan), NON deve fermarsi contro il muro che ha appena rotto!
+          if (isDestructiveSuper) {
+            continue; // Salta il blocco e continua a perforare
+          }
+
+          // Comportamento standard per tutti gli altri colpi normali non perforanti
           if (!p.piercing) {
             hitWall = true;
             this.spawnParticles(p.x, p.y, p.color, 4);
             break;
           }
-        } // <-- Chiude l'if delle coordinate geometriche
-      } // <-- Chiude il ciclo for dei muri (wIdx)
+        }
+      }
 
       if (hitWall) {
         this.projectiles.splice(i, 1);

@@ -19,7 +19,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     attackSpread: 0.1,
     attackDamage: 250, // 6 x 250 = 1500 di danno se tutti i colpi vanno a segno
     bulletCount: 6,
-    bulletSpeed: 12,
+    bulletSpeed: 17,
     bulletRadius: 6,
     bulletType: 'bullet',
     superChargePerHit: 9, // ~12 hits to charge Super
@@ -27,7 +27,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     superName: 'Raffica Devastante',
     superDesc: 'Scatena 12 colpi pesanti perforanti che distruggono le pareti e trapassano ogni nemico.',
     superRange: 600,
-    superRadius: 10,
+    superRadius: 9,
     superDamage: 400,
     superType: 'barrage',
 
@@ -55,7 +55,7 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     speed: 2.35,
     reloadTime: 1.6,
     maxAmmo: 3,
-    attackRange: 420,
+    attackRange: 350,
     attackSpread: 0.38, // Wide shotgun spread
     attackDamage: 200, // 10 pallottole x 200 = 2000 a distanza ravvicinata
     bulletCount: 10,
@@ -66,9 +66,9 @@ export const BRAWLERS: Record<BrawlerId, BrawlerDef> = {
     
     superName: 'Super Calibro',
     superDesc: 'Un colpo devastante che spazza via coperture, nemici e respinge violentemente all\'indietro.',
-    superRange: 500,
+    superRange: 400,
     superRadius: 12,
-    superDamage: 400,
+    superDamage: 450,
     superType: 'blast',
 
     passiveName: 'Cerotto Vitale',

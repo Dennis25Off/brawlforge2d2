@@ -1216,17 +1216,20 @@ export class GameEngine {
           p.y - p.radius < obs.y + obs.height
         ) {
           
-          // CONDIZIONE DELLE SUPER DISTRUTTIVE AGGIORNATA 💥
-          // Ora leggiamo correttamente dal campo p.superType scoperti dall'analisi!
-          const isDestructiveSuper = p.isSuper && (
-            p.superType === 'barrage' || // La Super di Blaze
-            p.superType === 'blast'   || // La Super di Viper
-            p.superType === 'leap'       // La Super di Titan (Meteora)
+          // DETEZIONE TOTAL OVERRIDE DELLE SUPER DISTRUTTIVE 💥
+          // Controlliamo superType, bulletType o qualsiasi traccia lasciata dai 3 brawler distruttivi
+          const isBlazeSuper  = p.superType === 'barrage' || p.bulletType === 'barrage';
+          const isViperSuper  = p.superType === 'blast'   || p.bulletType === 'blast';
+          const isTitanSuper  = p.superType === 'leap'    || p.bulletType === 'leap';
+          
+          // Se p.isSuper è true, oppure se il proiettile ha una delle mossa speciali sopra descritte
+          const isDestructiveSuper = isBlazeSuper || isViperSuper || isTitanSuper || (
+            p.isSuper && (p.brawlerId === 'blaze' || p.brawlerId === 'viper' || p.brawlerId === 'titan')
           );
 
           if ((p.destroysWalls || isDestructiveSuper) && obs.destructible) {
             this.spawnParticles(obs.x + obs.width / 2, obs.y + obs.height / 2, '#78350f', 12);
-            this.obstacles.splice(wIdx, 1); // Rimuove e distrugge il blocco di muro
+            this.obstacles.splice(wIdx, 1); // Forza la rimozione del muro distruttibile
             sound.playExplosion();
           } else if (obs.destructible && obs.hp) {
             obs.hp -= p.damage;
@@ -1236,21 +1239,23 @@ export class GameEngine {
             }
           }
 
-          // Se è di tipo sonic (Harmony), si ferma contro il muro SOLO SE non è una Super
-          // Controlliamo sia bulletType che superType per sicurezza su Harmony
-          const isSonic = p.bulletType === 'sonic' || p.superType === 'heal_wave';
-          if (isSonic && !p.isSuper) {
-            hitWall = true;
-            this.spawnParticles(p.x, p.y, p.color, 4);
-            break;
+          // Gestione isolata Harmony / Poco (non deve rompere ma deve passare oltre)
+          const isSonic = p.bulletType === 'sonic' || p.superType === 'heal_wave' || p.bulletType === 'heal_wave';
+          if (isSonic) {
+            if (!p.isSuper) {
+              hitWall = true;
+              this.spawnParticles(p.x, p.y, p.color, 4);
+              break;
+            }
+            continue; // La Super di Harmony salta tutto e trapassa
           }
 
-          // Se abbiamo confermato che si tratta di una Super distruttiva, non fermare il proiettile
+          // Se è una Super confermata distruttiva, evita che il proiettile venga cancellato
           if (isDestructiveSuper || p.destroysWalls) {
             continue; 
           }
 
-          // Comportamento standard per tutti gli altri colpi normali
+          // Regola per tutti gli altri proiettili standard
           if (!p.piercing) {
             hitWall = true;
             this.spawnParticles(p.x, p.y, p.color, 4);
@@ -1263,6 +1268,7 @@ export class GameEngine {
         this.projectiles.splice(i, 1);
         continue;
       }
+
 
       // Box collision
       let hitBox = false;

@@ -301,7 +301,7 @@ export const MatchmakingModal: React.FC<MatchmakingModalProps> = ({
               'RICERCA GIOCATORI'
             )}
           </h2>
-
+          </div>
         {/* 10 Player Slots Grid */}
         <div className="w-full grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-5">
           {Array.from({ length: 10 }).map((_, i) => {

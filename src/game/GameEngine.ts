@@ -1204,7 +1204,6 @@ export class GameEngine {
       }
 
       // Wall collision
-      // Wall collision
       let hitWall = false;
       for (let wIdx = this.obstacles.length - 1; wIdx >= 0; wIdx--) {
         const obs = this.obstacles[wIdx];
